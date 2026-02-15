@@ -10,12 +10,12 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xffffff);
 
 const camera = new THREE.PerspectiveCamera(
-  60,
+  50,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
-camera.position.z = 18;
+camera.position.z = 12;
 
 const renderer = new THREE.WebGLRenderer({ 
   antialias: true,
@@ -78,56 +78,6 @@ scene.add(pointLight2);
 const coreGroup = new THREE.Group();
 scene.add(coreGroup);
 
-// Create curved panel geometry for sphere effect
-function createCurvedPanelGeometry(width, height, curveRadius, segments = 32) {
-  const geometry = new THREE.BufferGeometry();
-  
-  const widthSegments = segments;
-  const heightSegments = Math.floor(segments * (height / width));
-  
-  const vertices = [];
-  const uvs = [];
-  const indices = [];
-  
-  // Calculate the angle that the panel spans
-  const arcAngle = width / curveRadius;
-  
-  for (let j = 0; j <= heightSegments; j++) {
-    const v = j / heightSegments;
-    const y = (v - 0.5) * height;
-    
-    for (let i = 0; i <= widthSegments; i++) {
-      const u = i / widthSegments;
-      const angle = (u - 0.5) * arcAngle;
-      
-      const x = Math.sin(angle) * curveRadius;
-      const z = Math.cos(angle) * curveRadius - curveRadius;
-      
-      vertices.push(x, y, z);
-      uvs.push(u, 1 - v);
-    }
-  }
-  
-  for (let j = 0; j < heightSegments; j++) {
-    for (let i = 0; i < widthSegments; i++) {
-      const a = j * (widthSegments + 1) + i;
-      const b = a + 1;
-      const c = a + (widthSegments + 1);
-      const d = c + 1;
-      
-      indices.push(a, c, b);
-      indices.push(b, c, d);
-    }
-  }
-  
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  
-  return geometry;
-}
-
 // Premium color palette - sophisticated gradients
 const premiumColors = [
   ['#1a1a2e', '#16213e', '#0f3460'], // Deep Navy
@@ -156,21 +106,10 @@ function createPremiumTexture(index) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 720, 1280);
   
-  // Subtle noise texture overlay
-  const imageData = ctx.getImageData(0, 0, 720, 1280);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 15;
-    data[i] = Math.min(255, Math.max(0, data[i] + noise));
-    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
-    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
-  }
-  ctx.putImageData(imageData, 0, 0);
-  
   // Glossy highlight overlay
   const highlightGradient = ctx.createRadialGradient(200, 300, 0, 360, 640, 800);
-  highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
-  highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+  highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+  highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.04)');
   highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
   ctx.fillStyle = highlightGradient;
   ctx.fillRect(0, 0, 720, 1280);
@@ -207,33 +146,31 @@ function createPremiumTexture(index) {
   return texture;
 }
 
-// Create 7 curved panels arranged in a sphere
+// Create 7 panels arranged in a sphere
 const panels = [];
-const sphereRadius = 8;
+const sphereRadius = 5;
 const numPanels = 7;
 
 for (let i = 0; i < numPanels; i++) {
-  // Distribute panels evenly around sphere
+  // Distribute panels evenly around sphere using fibonacci
   const phi = Math.acos(1 - 2 * (i + 0.5) / numPanels);
   const theta = Math.PI * (1 + Math.sqrt(5)) * i;
   
-  // Curved panel geometry - curves to match sphere surface
-  const panelWidth = 3.5;
-  const panelHeight = 5;
-  const geometry = createCurvedPanelGeometry(panelWidth, panelHeight, sphereRadius, 24);
+  // Simple flat panel geometry
+  const panelWidth = 2.8;
+  const panelHeight = 4;
+  const geometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
   
   const texture = createPremiumTexture(i);
   
   // Premium material with subtle reflections
   const material = new THREE.MeshPhysicalMaterial({
     map: texture,
-    side: THREE.DoubleSide,
-    roughness: 0.15,
-    metalness: 0.1,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.2,
-    reflectivity: 0.5,
-    envMapIntensity: 0.5,
+    side: THREE.FrontSide,
+    roughness: 0.2,
+    metalness: 0.05,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.3,
     transparent: true,
     opacity: 1
   });
@@ -248,8 +185,8 @@ for (let i = 0; i < numPanels; i++) {
   panel.position.set(x, y, z);
   
   // Orient panel to face outward from sphere center
-  panel.lookAt(0, 0, 0);
-  panel.rotateY(Math.PI);
+  const outwardDirection = new THREE.Vector3(x, y, z).normalize().multiplyScalar(sphereRadius * 2);
+  panel.lookAt(outwardDirection);
   
   panel.userData = {
     id: i,
