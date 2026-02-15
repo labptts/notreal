@@ -15,7 +15,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.z = 7;
+camera.position.z = 12;
 
 const renderer = new THREE.WebGLRenderer({ 
   antialias: true,
@@ -78,13 +78,13 @@ scene.add(pointLight2);
 const coreGroup = new THREE.Group();
 scene.add(coreGroup);
 
-// Create curved panel geometry that wraps around sphere surface
-function createSphericalPanelGeometry(width, height, sphereRadius, widthSegments = 16, heightSegments = 24) {
+// Create curved panel geometry that conforms to sphere surface
+// Panel center is at z=0, edges curve back (negative z) following sphere curvature
+function createSphericalPanelGeometry(width, height, curvatureRadius, widthSegments = 16, heightSegments = 24) {
   const geometry = new THREE.BufferGeometry();
   
-  // Calculate angular spans
-  const thetaSpan = width / sphereRadius; // horizontal angle
-  const phiSpan = height / sphereRadius;  // vertical angle
+  const thetaSpan = width / curvatureRadius;
+  const phiSpan = height / curvatureRadius;
   
   const vertices = [];
   const uvs = [];
@@ -92,22 +92,23 @@ function createSphericalPanelGeometry(width, height, sphereRadius, widthSegments
   
   for (let j = 0; j <= heightSegments; j++) {
     const v = j / heightSegments;
-    const phi = (v - 0.5) * phiSpan; // -phiSpan/2 to +phiSpan/2
+    const phi = (v - 0.5) * phiSpan;
     
     for (let i = 0; i <= widthSegments; i++) {
       const u = i / widthSegments;
-      const theta = (u - 0.5) * thetaSpan; // -thetaSpan/2 to +thetaSpan/2
+      const theta = (u - 0.5) * thetaSpan;
       
-      // Spherical coordinates to cartesian (panel at front of sphere)
-      const x = sphereRadius * Math.sin(theta) * Math.cos(phi);
-      const y = sphereRadius * Math.sin(phi);
-      const z = sphereRadius * Math.cos(theta) * Math.cos(phi) - sphereRadius;
+      const x = curvatureRadius * Math.sin(theta);
+      const y = curvatureRadius * Math.sin(phi);
+      // Center at z=0, edges curve back (negative z)
+      const z = -curvatureRadius * (1 - Math.cos(theta) * Math.cos(phi));
       
       vertices.push(x, y, z);
       uvs.push(u, 1 - v);
     }
   }
   
+  // Winding for normals pointing toward +z (outward from sphere)
   for (let j = 0; j < heightSegments; j++) {
     for (let i = 0; i < widthSegments; i++) {
       const a = j * (widthSegments + 1) + i;
@@ -115,8 +116,8 @@ function createSphericalPanelGeometry(width, height, sphereRadius, widthSegments
       const c = a + (widthSegments + 1);
       const d = c + 1;
       
-      indices.push(a, c, b);
-      indices.push(b, c, d);
+      indices.push(a, b, c);
+      indices.push(b, d, c);
     }
   }
   
@@ -209,8 +210,15 @@ const backColors = [
 
 // Create 7 panels arranged in a sphere
 const panels = [];
-const sphereRadius = 2.2;
+const sphereRadius = 4;
 const numPanels = 7;
+
+// Calculate optimal panel size to avoid overlap with small gaps
+// For 7 panels distributed on sphere, each panel gets roughly 4π/7 steradians
+// Panel angular size should be smaller to leave gaps
+const gapFactor = 0.92; // 8% gap between panels
+const panelWidth = 1.4 * gapFactor;
+const panelHeight = 2.0 * gapFactor;
 
 for (let i = 0; i < numPanels; i++) {
   // Distribute panels evenly around sphere using fibonacci
@@ -218,8 +226,6 @@ for (let i = 0; i < numPanels; i++) {
   const theta = Math.PI * (1 + Math.sqrt(5)) * i;
   
   // Curved panel geometry that wraps around sphere
-  const panelWidth = 2.2;
-  const panelHeight = 3.2;
   const frontGeometry = createSphericalPanelGeometry(panelWidth, panelHeight, sphereRadius, 16, 24);
   const backGeometry = createSphericalPanelGeometry(panelWidth, panelHeight, sphereRadius, 16, 24);
   
@@ -228,10 +234,10 @@ for (let i = 0; i < numPanels; i++) {
   // Create card group (front + back)
   const cardGroup = new THREE.Group();
   
-  // Front side with texture
+  // Front side with texture - visible from outside sphere
   const frontMaterial = new THREE.MeshPhysicalMaterial({
     map: texture,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
     roughness: 0.2,
     metalness: 0.05,
     clearcoat: 0.5,
@@ -244,16 +250,17 @@ for (let i = 0; i < numPanels; i++) {
   frontPanel.receiveShadow = true;
   cardGroup.add(frontPanel);
   
-  // Back side - solid color (flipped inward)
+  // Back side - solid color - visible from inside sphere
   const backMaterial = new THREE.MeshPhysicalMaterial({
     color: backColors[i % backColors.length],
-    side: THREE.BackSide,
+    side: THREE.DoubleSide,
     roughness: 0.3,
     metalness: 0.1,
     clearcoat: 0.3,
     clearcoatRoughness: 0.4
   });
   const backPanel = new THREE.Mesh(backGeometry, backMaterial);
+  backPanel.position.z = -0.02; // Slight offset inward
   backPanel.castShadow = true;
   backPanel.receiveShadow = true;
   cardGroup.add(backPanel);
@@ -265,9 +272,10 @@ for (let i = 0; i < numPanels; i++) {
   
   cardGroup.position.set(x, y, z);
   
-  // Orient card to face outward from sphere center
-  const outwardDirection = new THREE.Vector3(x, y, z).normalize().multiplyScalar(sphereRadius * 2);
-  cardGroup.lookAt(outwardDirection);
+  // Orient panel to face outward from sphere center
+  // lookAt points local -z toward target (center), so local +z faces outward
+  // This means FrontSide (normals toward +z) is visible from outside
+  cardGroup.lookAt(0, 0, 0);
   
   cardGroup.userData = {
     id: i,
