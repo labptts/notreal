@@ -72,9 +72,35 @@ function fibonacciSphere(samples) {
   return points;
 }
 
-// Create video texture function
-function createVideoTexture() {
-  // Create canvas as fallback if video doesn't exist
+// Create video texture function with unique colors
+function createVideoTexture(index) {
+  // Color palette for different creators
+  const colors = [
+    ['#667eea', '#764ba2'], // Purple
+    ['#f093fb', '#f5576c'], // Pink
+    ['#4facfe', '#00f2fe'], // Blue
+    ['#43e97b', '#38f9d7'], // Green
+    ['#fa709a', '#fee140'], // Orange-Pink
+    ['#30cfd0', '#330867'], // Teal-Purple
+    ['#a8edea', '#fed6e3'], // Light Blue-Pink
+    ['#ff9a9e', '#fecfef'], // Light Pink
+    ['#ffecd2', '#fcb69f'], // Peach
+    ['#ff6e7f', '#bfe9ff'], // Red-Blue
+    ['#e0c3fc', '#8ec5fc'], // Lavender-Blue
+    ['#f093fb', '#f5576c'], // Pink-Red
+    ['#fdfbfb', '#ebedee'], // Light Gray
+    ['#4facfe', '#00f2fe'], // Cyan
+    ['#43e97b', '#38f9d7'], // Mint
+    ['#fa709a', '#fee140'], // Coral
+    ['#30cfd0', '#330867'], // Dark Teal
+    ['#a8edea', '#fed6e3'], // Pastel
+    ['#ff9a9e', '#fad0c4'], // Rose
+    ['#ffecd2', '#fcb69f']  // Warm
+  ];
+  
+  const colorPair = colors[index % colors.length];
+  
+  // Create canvas as fallback
   const canvas = document.createElement('canvas');
   canvas.width = 720;
   canvas.height = 1280;
@@ -82,18 +108,29 @@ function createVideoTexture() {
   
   // Create gradient background
   const gradient = ctx.createLinearGradient(0, 0, 0, 1280);
-  gradient.addColorStop(0, '#667eea');
-  gradient.addColorStop(1, '#764ba2');
+  gradient.addColorStop(0, colorPair[0]);
+  gradient.addColorStop(1, colorPair[1]);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 720, 1280);
   
+  // Add decorative elements
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.arc(Math.random() * 720, Math.random() * 1280, 50 + Math.random() * 100, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
   // Add text
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 60px Arial';
+  ctx.font = 'bold 70px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('AI Creator', 360, 640);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('AI Creator', 360, 580);
+  ctx.font = '40px Arial';
+  ctx.fillText(`#${index + 1}`, 360, 700);
   
-  // Try to load video, fallback to canvas
+  // Try to load video
   const video = document.createElement('video');
   video.src = '/preview.mp4';
   video.crossOrigin = 'anonymous';
@@ -101,13 +138,22 @@ function createVideoTexture() {
   video.muted = true;
   video.playsInline = true;
   
+  let useCanvas = false;
+  
   // Attempt to play video
   video.play().catch(() => {
-    console.log('Video not found, using canvas texture');
+    useCanvas = true;
   });
   
-  // Use video if available, otherwise use canvas
-  const texture = new THREE.VideoTexture(video);
+  // Check after a short delay if video loaded
+  setTimeout(() => {
+    if (video.readyState < 2) {
+      useCanvas = true;
+    }
+  }, 100);
+  
+  // Use canvas texture for now (video fallback logic)
+  const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   
@@ -124,7 +170,7 @@ panelPositions.forEach((pos, index) => {
   const geometry = new THREE.PlaneGeometry(4, 5);
   
   // Create material with video texture
-  const texture = createVideoTexture();
+  const texture = createVideoTexture(index);
   const material = new THREE.MeshStandardMaterial({
     map: texture,
     side: THREE.DoubleSide,
