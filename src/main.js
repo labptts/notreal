@@ -1,9 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
 import { gsap } from 'gsap';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -15,119 +12,31 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.z = 12;
+camera.position.z = 14;
 
 const renderer = new THREE.WebGLRenderer({ 
   antialias: true,
-  alpha: true,
-  powerPreference: 'high-performance'
+  alpha: true
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
 document.querySelector('#app').appendChild(renderer.domElement);
 
-// Post-processing
-const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, camera);
-composer.addPass(renderPass);
-
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.3,  // strength
-  0.4,  // radius
-  0.85  // threshold
-);
-composer.addPass(bloomPass);
-
-// Premium Lighting Setup
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+// Simple lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
 
-// Key light
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-keyLight.position.set(10, 15, 10);
-keyLight.castShadow = true;
-keyLight.shadow.mapSize.width = 2048;
-keyLight.shadow.mapSize.height = 2048;
-scene.add(keyLight);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(5, 10, 7);
+scene.add(directionalLight);
 
-// Fill light
-const fillLight = new THREE.DirectionalLight(0xe8e8ff, 0.6);
-fillLight.position.set(-10, 5, -5);
-scene.add(fillLight);
-
-// Rim light for depth
-const rimLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
-rimLight.position.set(0, -10, -10);
-scene.add(rimLight);
-
-// Subtle point lights for highlights
-const pointLight1 = new THREE.PointLight(0x6366f1, 0.5, 30);
-pointLight1.position.set(8, 8, 8);
-scene.add(pointLight1);
-
-const pointLight2 = new THREE.PointLight(0xec4899, 0.5, 30);
-pointLight2.position.set(-8, -8, 8);
-scene.add(pointLight2);
+const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+directionalLight2.position.set(-5, -5, 5);
+scene.add(directionalLight2);
 
 // Core Group - Main container for all panels
 const coreGroup = new THREE.Group();
 scene.add(coreGroup);
-
-// Create curved panel geometry that conforms to sphere surface
-// Panel center is at z=0, edges curve back (negative z) following sphere curvature
-function createSphericalPanelGeometry(width, height, curvatureRadius, widthSegments = 16, heightSegments = 24) {
-  const geometry = new THREE.BufferGeometry();
-  
-  const thetaSpan = width / curvatureRadius;
-  const phiSpan = height / curvatureRadius;
-  
-  const vertices = [];
-  const uvs = [];
-  const indices = [];
-  
-  for (let j = 0; j <= heightSegments; j++) {
-    const v = j / heightSegments;
-    const phi = (v - 0.5) * phiSpan;
-    
-    for (let i = 0; i <= widthSegments; i++) {
-      const u = i / widthSegments;
-      const theta = (u - 0.5) * thetaSpan;
-      
-      const x = curvatureRadius * Math.sin(theta);
-      const y = curvatureRadius * Math.sin(phi);
-      // Center at z=0, edges curve back (negative z)
-      const z = -curvatureRadius * (1 - Math.cos(theta) * Math.cos(phi));
-      
-      vertices.push(x, y, z);
-      uvs.push(u, 1 - v);
-    }
-  }
-  
-  // Winding for normals pointing toward +z (outward from sphere)
-  for (let j = 0; j < heightSegments; j++) {
-    for (let i = 0; i < widthSegments; i++) {
-      const a = j * (widthSegments + 1) + i;
-      const b = a + 1;
-      const c = a + (widthSegments + 1);
-      const d = c + 1;
-      
-      indices.push(a, b, c);
-      indices.push(b, d, c);
-    }
-  }
-  
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  
-  return geometry;
-}
 
 // Premium color palette - sophisticated gradients
 const premiumColors = [
@@ -210,59 +119,45 @@ const backColors = [
 
 // Create 7 panels arranged in a sphere
 const panels = [];
-const sphereRadius = 4;
+const sphereRadius = 5;
 const numPanels = 7;
-
-// Calculate optimal panel size to avoid overlap with small gaps
-// For 7 panels distributed on sphere, each panel gets roughly 4π/7 steradians
-// Panel angular size should be smaller to leave gaps
-const gapFactor = 0.92; // 8% gap between panels
-const panelWidth = 1.4 * gapFactor;
-const panelHeight = 2.0 * gapFactor;
+const panelWidth = 2.5;
+const panelHeight = 3.5;
 
 for (let i = 0; i < numPanels; i++) {
   // Distribute panels evenly around sphere using fibonacci
   const phi = Math.acos(1 - 2 * (i + 0.5) / numPanels);
   const theta = Math.PI * (1 + Math.sqrt(5)) * i;
   
-  // Curved panel geometry that wraps around sphere
-  const frontGeometry = createSphericalPanelGeometry(panelWidth, panelHeight, sphereRadius, 16, 24);
-  const backGeometry = createSphericalPanelGeometry(panelWidth, panelHeight, sphereRadius, 16, 24);
+  // Simple flat panel geometry
+  const geometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
   
   const texture = createPremiumTexture(i);
   
   // Create card group (front + back)
   const cardGroup = new THREE.Group();
   
-  // Front side with texture - visible from outside sphere
-  const frontMaterial = new THREE.MeshPhysicalMaterial({
+  // Front side with texture
+  const frontMaterial = new THREE.MeshStandardMaterial({
     map: texture,
-    side: THREE.DoubleSide,
-    roughness: 0.2,
-    metalness: 0.05,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.3,
-    transparent: true,
-    opacity: 1
+    side: THREE.FrontSide,
+    roughness: 0.3,
+    metalness: 0.1
   });
-  const frontPanel = new THREE.Mesh(frontGeometry, frontMaterial);
-  frontPanel.castShadow = true;
-  frontPanel.receiveShadow = true;
+  const frontPanel = new THREE.Mesh(geometry, frontMaterial);
   cardGroup.add(frontPanel);
   
-  // Back side - solid color - visible from inside sphere
-  const backMaterial = new THREE.MeshPhysicalMaterial({
+  // Back side - solid color
+  const backMaterial = new THREE.MeshStandardMaterial({
     color: backColors[i % backColors.length],
-    side: THREE.DoubleSide,
-    roughness: 0.3,
-    metalness: 0.1,
-    clearcoat: 0.3,
-    clearcoatRoughness: 0.4
+    side: THREE.FrontSide,
+    roughness: 0.4,
+    metalness: 0.1
   });
+  const backGeometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
   const backPanel = new THREE.Mesh(backGeometry, backMaterial);
-  backPanel.position.z = -0.02; // Slight offset inward
-  backPanel.castShadow = true;
-  backPanel.receiveShadow = true;
+  backPanel.rotation.y = Math.PI; // Face opposite direction
+  backPanel.position.z = -0.01;
   cardGroup.add(backPanel);
   
   // Position on sphere surface
@@ -272,15 +167,14 @@ for (let i = 0; i < numPanels; i++) {
   
   cardGroup.position.set(x, y, z);
   
-  // Orient panel to face outward from sphere center
-  // lookAt points local -z toward target (center), so local +z faces outward
-  // This means FrontSide (normals toward +z) is visible from outside
-  cardGroup.lookAt(0, 0, 0);
+  // Make card face outward from sphere center
+  // lookAt makes -z point toward target, so card faces away from center
+  const target = new THREE.Vector3(x * 2, y * 2, z * 2);
+  cardGroup.lookAt(target);
   
   cardGroup.userData = {
     id: i,
     originalScale: 1,
-    originalY: y,
     selected: false
   };
   
@@ -488,7 +382,6 @@ function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
 }
 
 window.addEventListener('resize', onWindowResize);
@@ -505,7 +398,7 @@ setTimeout(() => {
 
 // Subtle auto-rotation for premium feel
 let autoRotate = true;
-const autoRotateSpeed = 0.001;
+const autoRotateSpeed = 0.002;
 
 // Animation loop
 function animate() {
@@ -519,8 +412,7 @@ function animate() {
     coreGroup.rotation.y += autoRotateSpeed;
   }
   
-  // Use composer for post-processing
-  composer.render();
+  renderer.render(scene, camera);
 }
 
 animate();
