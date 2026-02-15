@@ -1,6 +1,10 @@
 import './style.css';
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -87,34 +91,70 @@ const rimLight = new THREE.DirectionalLight(0xfff5e6, 0.2);
 rimLight.position.set(0, -8, -8);
 scene.add(rimLight);
 
-// Environment map for reflections
+// Studio HDRI environment - gradient sphere with warm/cool zones
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 const envScene = new THREE.Scene();
-const envGeo = new THREE.SphereGeometry(50, 32, 32);
+
+// Multi-zone gradient environment for realistic reflections
+function createStudioEnvTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  
+  // Base: warm top to cool bottom
+  const baseGrad = ctx.createLinearGradient(0, 0, 0, 512);
+  baseGrad.addColorStop(0, '#fdf6f0');    // warm white top
+  baseGrad.addColorStop(0.3, '#ffffff');   // bright key light zone
+  baseGrad.addColorStop(0.5, '#f0f0f5');   // neutral mid
+  baseGrad.addColorStop(0.7, '#e8eaf0');   // cool fill
+  baseGrad.addColorStop(1, '#d5d8e0');     // cool shadow
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0, 0, 1024, 512);
+  
+  // Key light area (bright spot upper right)
+  const keyGrad = ctx.createRadialGradient(750, 120, 0, 750, 120, 250);
+  keyGrad.addColorStop(0, 'rgba(255, 252, 245, 0.9)');
+  keyGrad.addColorStop(0.4, 'rgba(255, 250, 240, 0.4)');
+  keyGrad.addColorStop(1, 'rgba(255, 250, 240, 0)');
+  ctx.fillStyle = keyGrad;
+  ctx.fillRect(0, 0, 1024, 512);
+  
+  // Fill light area (soft blue-ish left)
+  const fillGrad = ctx.createRadialGradient(200, 200, 0, 200, 200, 300);
+  fillGrad.addColorStop(0, 'rgba(230, 235, 255, 0.5)');
+  fillGrad.addColorStop(0.5, 'rgba(230, 235, 255, 0.2)');
+  fillGrad.addColorStop(1, 'rgba(230, 235, 255, 0)');
+  ctx.fillStyle = fillGrad;
+  ctx.fillRect(0, 0, 1024, 512);
+  
+  // Rim/backlight (subtle warm glow bottom center)
+  const rimGrad = ctx.createRadialGradient(512, 450, 0, 512, 450, 200);
+  rimGrad.addColorStop(0, 'rgba(255, 245, 230, 0.3)');
+  rimGrad.addColorStop(1, 'rgba(255, 245, 230, 0)');
+  ctx.fillStyle = rimGrad;
+  ctx.fillRect(0, 0, 1024, 512);
+  
+  return canvas;
+}
+
+const envCanvas = createStudioEnvTexture();
+const envTexture = new THREE.CanvasTexture(envCanvas);
+envTexture.mapping = THREE.EquirectangularReflectionMapping;
+
+const envGeo = new THREE.SphereGeometry(50, 64, 32);
 const envMat = new THREE.MeshBasicMaterial({
-  side: THREE.BackSide,
-  color: 0xffffff
+  map: envTexture,
+  side: THREE.BackSide
 });
 const envMesh = new THREE.Mesh(envGeo, envMat);
 envScene.add(envMesh);
 
-const gradientLight = new THREE.HemisphereLight(0xffffff, 0xe0e5ec, 1);
-envScene.add(gradientLight);
-
 const envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
 scene.environment = envMap;
+pmremGenerator.dispose();
 
-// Shadow plane - soft and subtle
-const shadowPlaneGeo = new THREE.PlaneGeometry(50, 50);
-const shadowPlaneMat = new THREE.ShadowMaterial({ 
-  opacity: 0.08,
-  color: 0x222222
-});
-const shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
-shadowPlane.rotation.x = -Math.PI / 2;
-shadowPlane.position.y = -6;
-shadowPlane.receiveShadow = true;
-scene.add(shadowPlane);
+
 
 // Sphere radius
 const sphereRadius = 5;
@@ -219,6 +259,25 @@ function createPremiumTexture(index, label) {
   ctx.fillStyle = highlightGradient;
   ctx.fillRect(0, 0, 1024, 1024);
   
+  // Inner shadow / vignette around panel edges for depth
+  const vignetteGrad = ctx.createRadialGradient(512, 512, 300, 512, 512, 720);
+  vignetteGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignetteGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.03)');
+  vignetteGrad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+  ctx.fillStyle = vignetteGrad;
+  ctx.fillRect(0, 0, 1024, 1024);
+  
+  // Subtle noise/grain for texture
+  const grainData = ctx.getImageData(0, 0, 1024, 1024);
+  const gd = grainData.data;
+  for (let gi = 0; gi < gd.length; gi += 4) {
+    const grain = (Math.random() - 0.5) * 8;
+    gd[gi] = Math.max(0, Math.min(255, gd[gi] + grain));
+    gd[gi + 1] = Math.max(0, Math.min(255, gd[gi + 1] + grain));
+    gd[gi + 2] = Math.max(0, Math.min(255, gd[gi + 2] + grain));
+  }
+  ctx.putImageData(grainData, 0, 0);
+  
   // Typography
   ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
   ctx.font = '600 48px "SF Pro Display", "Helvetica Neue", Arial';
@@ -297,11 +356,11 @@ for (let i = 0; i < numPanels; i++) {
   const frontMaterial = new THREE.MeshPhysicalMaterial({
     map: texture,
     side: THREE.FrontSide,
-    roughness: 0.35,
-    metalness: 0.02,
-    clearcoat: 0.3,
-    clearcoatRoughness: 0.4,
-    envMapIntensity: 0.2,
+    roughness: 0.28,
+    metalness: 0.03,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.25,
+    envMapIntensity: 0.5,
     transparent: true,
     opacity: 1
   });
@@ -358,6 +417,8 @@ class RotationControls {
     this.rotationVelocity = { x: 0, y: 0 };
     this.dampingFactor = 0.92;
     this.enabled = true;
+    this.hasDragged = false;
+    this.startPosition = { x: 0, y: 0 };
     this.setupEventListeners();
   }
   
@@ -378,8 +439,10 @@ class RotationControls {
   onPointerDown(event) {
     if (!this.enabled || isDetailView) return;
     this.isRotating = true;
+    this.startPosition = { x: event.clientX, y: event.clientY };
     this.previousMousePosition = { x: event.clientX, y: event.clientY };
     this.rotationVelocity = { x: 0, y: 0 };
+    this.hasDragged = false;
   }
   
   onPointerMove(event) {
@@ -387,6 +450,15 @@ class RotationControls {
     
     const deltaX = event.clientX - this.previousMousePosition.x;
     const deltaY = event.clientY - this.previousMousePosition.y;
+    
+    // Track if cursor moved enough to count as drag
+    if (this.startPosition) {
+      const totalDx = event.clientX - this.startPosition.x;
+      const totalDy = event.clientY - this.startPosition.y;
+      if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > 3) {
+        this.hasDragged = true;
+      }
+    }
     
     const rotationSpeed = 0.004;
     this.object.rotation.y += deltaX * rotationSpeed;
@@ -701,12 +773,17 @@ function returnToSphereView() {
   selectedPanel = null;
 }
 
-renderer.domElement.addEventListener('click', onPanelClick);
+renderer.domElement.addEventListener('click', (event) => {
+  // Only handle click if user didn't drag
+  if (controls.hasDragged) return;
+  onPanelClick(event);
+});
 
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 }
 
 window.addEventListener('resize', onWindowResize);
@@ -719,6 +796,70 @@ setTimeout(() => {
     setTimeout(() => loading.remove(), 500);
   }
 }, 500);
+
+// Post-processing setup
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+// Subtle Depth of Field (Bokeh)
+const bokehPass = new BokehPass(scene, camera, {
+  focus: 16.0,
+  aperture: 0.0008,
+  maxblur: 0.006
+});
+composer.addPass(bokehPass);
+
+// Film grain + chromatic aberration shader
+const filmGrainCA = {
+  uniforms: {
+    tDiffuse: { value: null },
+    time: { value: 0 },
+    grainIntensity: { value: 0.04 },
+    caOffset: { value: 0.0006 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float time;
+    uniform float grainIntensity;
+    uniform float caOffset;
+    varying vec2 vUv;
+    
+    float random(vec2 co) {
+      return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+    
+    void main() {
+      // Chromatic aberration - shift R and B channels slightly
+      vec2 dir = vUv - vec2(0.5);
+      float dist = length(dir);
+      vec2 offset = dir * caOffset * dist;
+      
+      float r = texture2D(tDiffuse, vUv + offset).r;
+      float g = texture2D(tDiffuse, vUv).g;
+      float b = texture2D(tDiffuse, vUv - offset).b;
+      float a = texture2D(tDiffuse, vUv).a;
+      
+      vec4 color = vec4(r, g, b, a);
+      
+      // Film grain
+      float grain = random(vUv + fract(time)) * grainIntensity;
+      color.rgb += grain - grainIntensity * 0.5;
+      
+      gl_FragColor = color;
+    }
+  `
+};
+
+const filmGrainPass = new ShaderPass(filmGrainCA);
+composer.addPass(filmGrainPass);
 
 let time = 0;
 const autoRotateSpeed = 0.002;
@@ -740,7 +881,10 @@ function animate() {
     camera.lookAt(0, 0, 0);
   }
   
-  renderer.render(scene, camera);
+  // Update film grain time
+  filmGrainPass.uniforms.time.value = time;
+  
+  composer.render();
 }
 
 animate();
