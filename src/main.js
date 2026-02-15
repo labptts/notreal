@@ -1,188 +1,269 @@
 import './style.css';
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 // Scene setup
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
+
 const camera = new THREE.PerspectiveCamera(
-  75,
+  60,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
-camera.position.z = 25;
+camera.position.z = 18;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ 
+  antialias: true,
+  alpha: true,
+  powerPreference: 'high-performance'
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
 document.querySelector('#app').appendChild(renderer.domElement);
 
-// Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+// Post-processing
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.3,  // strength
+  0.4,  // radius
+  0.85  // threshold
+);
+composer.addPass(bloomPass);
+
+// Premium Lighting Setup
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(5, 5, 5);
-scene.add(directionalLight);
+// Key light
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+keyLight.position.set(10, 15, 10);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 2048;
+keyLight.shadow.mapSize.height = 2048;
+scene.add(keyLight);
 
-// Background - Cosmic stars
-const starsGeometry = new THREE.BufferGeometry();
-const starsMaterial = new THREE.PointsMaterial({
-  color: 0xffffff,
-  size: 0.1,
-  transparent: true,
-  opacity: 0.8
-});
+// Fill light
+const fillLight = new THREE.DirectionalLight(0xe8e8ff, 0.6);
+fillLight.position.set(-10, 5, -5);
+scene.add(fillLight);
 
-const starsVertices = [];
-for (let i = 0; i < 1000; i++) {
-  const x = (Math.random() - 0.5) * 100;
-  const y = (Math.random() - 0.5) * 100;
-  const z = (Math.random() - 0.5) * 100;
-  starsVertices.push(x, y, z);
-}
+// Rim light for depth
+const rimLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
+rimLight.position.set(0, -10, -10);
+scene.add(rimLight);
 
-starsGeometry.setAttribute(
-  'position',
-  new THREE.Float32BufferAttribute(starsVertices, 3)
-);
-const stars = new THREE.Points(starsGeometry, starsMaterial);
-scene.add(stars);
+// Subtle point lights for highlights
+const pointLight1 = new THREE.PointLight(0x6366f1, 0.5, 30);
+pointLight1.position.set(8, 8, 8);
+scene.add(pointLight1);
+
+const pointLight2 = new THREE.PointLight(0xec4899, 0.5, 30);
+pointLight2.position.set(-8, -8, 8);
+scene.add(pointLight2);
 
 // Core Group - Main container for all panels
 const coreGroup = new THREE.Group();
 scene.add(coreGroup);
 
-// Fibonacci Sphere algorithm for even distribution
-function fibonacciSphere(samples) {
-  const points = [];
-  // Golden angle in radians (~137.5 degrees) - used for optimal point distribution on sphere
-  const phi = Math.PI * (3 - Math.sqrt(5));
-
-  for (let i = 0; i < samples; i++) {
-    const y = 1 - (i / (samples - 1)) * 2; // y goes from 1 to -1
-    const radius = Math.sqrt(1 - y * y);
-    const theta = phi * i;
-
-    const x = Math.cos(theta) * radius;
-    const z = Math.sin(theta) * radius;
-
-    points.push({ x, y, z });
+// Create curved panel geometry for sphere effect
+function createCurvedPanelGeometry(width, height, curveRadius, segments = 32) {
+  const geometry = new THREE.BufferGeometry();
+  
+  const widthSegments = segments;
+  const heightSegments = Math.floor(segments * (height / width));
+  
+  const vertices = [];
+  const uvs = [];
+  const indices = [];
+  
+  // Calculate the angle that the panel spans
+  const arcAngle = width / curveRadius;
+  
+  for (let j = 0; j <= heightSegments; j++) {
+    const v = j / heightSegments;
+    const y = (v - 0.5) * height;
+    
+    for (let i = 0; i <= widthSegments; i++) {
+      const u = i / widthSegments;
+      const angle = (u - 0.5) * arcAngle;
+      
+      const x = Math.sin(angle) * curveRadius;
+      const z = Math.cos(angle) * curveRadius - curveRadius;
+      
+      vertices.push(x, y, z);
+      uvs.push(u, 1 - v);
+    }
   }
-
-  return points;
+  
+  for (let j = 0; j < heightSegments; j++) {
+    for (let i = 0; i < widthSegments; i++) {
+      const a = j * (widthSegments + 1) + i;
+      const b = a + 1;
+      const c = a + (widthSegments + 1);
+      const d = c + 1;
+      
+      indices.push(a, c, b);
+      indices.push(b, c, d);
+    }
+  }
+  
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  
+  return geometry;
 }
 
-// Create video texture function with unique colors
-function createVideoTexture(index) {
-  // Color palette for different creators
-  const colors = [
-    ['#667eea', '#764ba2'], // Purple
-    ['#f093fb', '#f5576c'], // Pink
-    ['#4facfe', '#00f2fe'], // Blue
-    ['#43e97b', '#38f9d7'], // Green
-    ['#fa709a', '#fee140'], // Orange-Pink
-    ['#30cfd0', '#330867'], // Teal-Purple
-    ['#a8edea', '#fed6e3'], // Light Blue-Pink
-    ['#ff9a9e', '#fecfef'], // Light Pink
-    ['#ffecd2', '#fcb69f'], // Peach
-    ['#ff6e7f', '#bfe9ff'], // Red-Blue
-    ['#e0c3fc', '#8ec5fc'], // Lavender-Blue
-    ['#f093fb', '#f5576c'], // Pink-Red
-    ['#fdfbfb', '#ebedee'], // Light Gray
-    ['#4facfe', '#00f2fe'], // Cyan
-    ['#43e97b', '#38f9d7'], // Mint
-    ['#fa709a', '#fee140'], // Coral
-    ['#30cfd0', '#330867'], // Dark Teal
-    ['#a8edea', '#fed6e3'], // Pastel
-    ['#ff9a9e', '#fad0c4'], // Rose
-    ['#ffecd2', '#fcb69f']  // Warm
-  ];
+// Premium color palette - sophisticated gradients
+const premiumColors = [
+  ['#1a1a2e', '#16213e', '#0f3460'], // Deep Navy
+  ['#2d1b69', '#574b90', '#9b89b3'], // Royal Purple  
+  ['#0c0c0c', '#1c1c1c', '#2d2d2d'], // Elegant Black
+  ['#1e3a5f', '#3d5a80', '#98c1d9'], // Ocean Blue
+  ['#5c2751', '#912f56', '#d63864'], // Wine Red
+  ['#0d1b2a', '#1b263b', '#415a77'], // Midnight
+  ['#2b2d42', '#8d99ae', '#edf2f4'], // Steel Gray
+];
+
+// Create premium video texture
+function createPremiumTexture(index) {
+  const colorSet = premiumColors[index % premiumColors.length];
   
-  const colorPair = colors[index % colors.length];
-  
-  // Create canvas as fallback
   const canvas = document.createElement('canvas');
   canvas.width = 720;
   canvas.height = 1280;
   const ctx = canvas.getContext('2d');
   
-  // Create gradient background
-  const gradient = ctx.createLinearGradient(0, 0, 0, 1280);
-  gradient.addColorStop(0, colorPair[0]);
-  gradient.addColorStop(1, colorPair[1]);
+  // Multi-stop gradient for depth
+  const gradient = ctx.createLinearGradient(0, 0, 720, 1280);
+  gradient.addColorStop(0, colorSet[0]);
+  gradient.addColorStop(0.5, colorSet[1]);
+  gradient.addColorStop(1, colorSet[2]);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 720, 1280);
   
-  // Add decorative elements
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-  for (let i = 0; i < 5; i++) {
-    ctx.beginPath();
-    ctx.arc(Math.random() * 720, Math.random() * 1280, 50 + Math.random() * 100, 0, Math.PI * 2);
-    ctx.fill();
+  // Subtle noise texture overlay
+  const imageData = ctx.getImageData(0, 0, 720, 1280);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 15;
+    data[i] = Math.min(255, Math.max(0, data[i] + noise));
+    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
+    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
   }
+  ctx.putImageData(imageData, 0, 0);
   
-  // Add text
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 70px Arial';
+  // Glossy highlight overlay
+  const highlightGradient = ctx.createRadialGradient(200, 300, 0, 360, 640, 800);
+  highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+  highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+  highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = highlightGradient;
+  ctx.fillRect(0, 0, 720, 1280);
+  
+  // Elegant typography
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.font = '600 56px "SF Pro Display", "Helvetica Neue", Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('AI Creator', 360, 580);
-  ctx.font = '40px Arial';
-  ctx.fillText(`#${index + 1}`, 360, 700);
   
-  // Use canvas texture (colorful gradient as primary texture)
-  // Video can be added by placing preview.mp4 in /public directory
+  // Add subtle text shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 4;
+  
+  ctx.fillText('CREATOR', 360, 600);
+  
+  ctx.font = '300 120px "SF Pro Display", "Helvetica Neue", Arial';
+  ctx.fillText(`0${index + 1}`, 360, 720);
+  
+  // Reset shadow
+  ctx.shadowColor = 'transparent';
+  
+  // Bottom accent line
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.fillRect(260, 850, 200, 2);
+  
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   
   return texture;
 }
 
-// Create 20 panels
+// Create 7 curved panels arranged in a sphere
 const panels = [];
-const sphereRadius = 10;
-const panelPositions = fibonacciSphere(20);
+const sphereRadius = 8;
+const numPanels = 7;
 
-panelPositions.forEach((pos, index) => {
-  // Panel geometry - vertical format (4x5)
-  const geometry = new THREE.PlaneGeometry(4, 5);
+for (let i = 0; i < numPanels; i++) {
+  // Distribute panels evenly around sphere
+  const phi = Math.acos(1 - 2 * (i + 0.5) / numPanels);
+  const theta = Math.PI * (1 + Math.sqrt(5)) * i;
   
-  // Create material with video texture
-  const texture = createVideoTexture(index);
-  const material = new THREE.MeshStandardMaterial({
+  // Curved panel geometry - curves to match sphere surface
+  const panelWidth = 3.5;
+  const panelHeight = 5;
+  const geometry = createCurvedPanelGeometry(panelWidth, panelHeight, sphereRadius, 24);
+  
+  const texture = createPremiumTexture(i);
+  
+  // Premium material with subtle reflections
+  const material = new THREE.MeshPhysicalMaterial({
     map: texture,
     side: THREE.DoubleSide,
-    emissive: 0x222222,
-    emissiveIntensity: 0.2,
+    roughness: 0.15,
+    metalness: 0.1,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.2,
+    reflectivity: 0.5,
+    envMapIntensity: 0.5,
     transparent: true,
     opacity: 1
   });
   
   const panel = new THREE.Mesh(geometry, material);
   
-  // Position on sphere
-  panel.position.set(
-    pos.x * sphereRadius,
-    pos.y * sphereRadius,
-    pos.z * sphereRadius
-  );
+  // Position on sphere surface
+  const x = sphereRadius * Math.sin(phi) * Math.cos(theta);
+  const y = sphereRadius * Math.cos(phi);
+  const z = sphereRadius * Math.sin(phi) * Math.sin(theta);
   
-  // Make panel face outward from center
+  panel.position.set(x, y, z);
+  
+  // Orient panel to face outward from sphere center
   panel.lookAt(0, 0, 0);
-  panel.rotateY(Math.PI); // Flip to face outward
+  panel.rotateY(Math.PI);
   
-  // Store original data
   panel.userData = {
-    id: index,
+    id: i,
     originalScale: 1,
     selected: false
   };
   
+  // Add subtle shadow
+  panel.castShadow = true;
+  panel.receiveShadow = true;
+  
   coreGroup.add(panel);
   panels.push(panel);
-});
+}
 
 // Custom rotation controls
 class RotationControls {
@@ -385,6 +466,7 @@ function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 }
 
 window.addEventListener('resize', onWindowResize);
@@ -399,6 +481,10 @@ setTimeout(() => {
   }
 }, 500);
 
+// Subtle auto-rotation for premium feel
+let autoRotate = true;
+const autoRotateSpeed = 0.001;
+
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
@@ -406,10 +492,19 @@ function animate() {
   // Update controls (apply inertia)
   controls.update();
   
-  // Slowly rotate stars for depth effect
-  stars.rotation.y += 0.0001;
+  // Subtle auto-rotation when not interacting
+  if (autoRotate && !controls.isRotating) {
+    coreGroup.rotation.y += autoRotateSpeed;
+  }
   
-  renderer.render(scene, camera);
+  // Subtle floating animation for panels
+  const time = Date.now() * 0.001;
+  panels.forEach((panel, i) => {
+    panel.position.y += Math.sin(time + i * 0.5) * 0.001;
+  });
+  
+  // Use composer for post-processing
+  composer.render();
 }
 
 animate();
