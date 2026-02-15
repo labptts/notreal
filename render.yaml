@@ -1,0 +1,11 @@
+{
+  "services": [
+    {
+      "type": "static_site",
+      "name": "talent-core",
+      "branch": "main",
+      "buildCommand": "npm install && npm run build",
+      "staticPublishPath": "./dist"
+    }
+  ]
+}
