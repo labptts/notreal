@@ -15,7 +15,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.z = 9;
+camera.position.z = 7;
 
 const renderer = new THREE.WebGLRenderer({ 
   antialias: true,
@@ -146,9 +146,20 @@ function createPremiumTexture(index) {
   return texture;
 }
 
+// Back side colors matching premium palette
+const backColors = [
+  0x1a1a2e, // Deep Navy
+  0x2d1b69, // Royal Purple
+  0x1c1c1c, // Elegant Black
+  0x1e3a5f, // Ocean Blue
+  0x5c2751, // Wine Red
+  0x0d1b2a, // Midnight
+  0x2b2d42, // Steel Gray
+];
+
 // Create 7 panels arranged in a sphere
 const panels = [];
-const sphereRadius = 3;
+const sphereRadius = 2.2;
 const numPanels = 7;
 
 for (let i = 0; i < numPanels; i++) {
@@ -163,8 +174,11 @@ for (let i = 0; i < numPanels; i++) {
   
   const texture = createPremiumTexture(i);
   
-  // Premium material with subtle reflections
-  const material = new THREE.MeshPhysicalMaterial({
+  // Create card group (front + back)
+  const cardGroup = new THREE.Group();
+  
+  // Front side with texture
+  const frontMaterial = new THREE.MeshPhysicalMaterial({
     map: texture,
     side: THREE.FrontSide,
     roughness: 0.2,
@@ -174,32 +188,47 @@ for (let i = 0; i < numPanels; i++) {
     transparent: true,
     opacity: 1
   });
+  const frontPanel = new THREE.Mesh(geometry, frontMaterial);
+  frontPanel.castShadow = true;
+  frontPanel.receiveShadow = true;
+  cardGroup.add(frontPanel);
   
-  const panel = new THREE.Mesh(geometry, material);
+  // Back side - solid color
+  const backMaterial = new THREE.MeshPhysicalMaterial({
+    color: backColors[i % backColors.length],
+    side: THREE.FrontSide,
+    roughness: 0.3,
+    metalness: 0.1,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.4
+  });
+  const backPanel = new THREE.Mesh(geometry.clone(), backMaterial);
+  backPanel.rotation.y = Math.PI; // Flip to face opposite direction
+  backPanel.position.z = -0.01; // Slight offset to avoid z-fighting
+  backPanel.castShadow = true;
+  backPanel.receiveShadow = true;
+  cardGroup.add(backPanel);
   
   // Position on sphere surface
   const x = sphereRadius * Math.sin(phi) * Math.cos(theta);
   const y = sphereRadius * Math.cos(phi);
   const z = sphereRadius * Math.sin(phi) * Math.sin(theta);
   
-  panel.position.set(x, y, z);
+  cardGroup.position.set(x, y, z);
   
-  // Orient panel to face outward from sphere center
+  // Orient card to face outward from sphere center
   const outwardDirection = new THREE.Vector3(x, y, z).normalize().multiplyScalar(sphereRadius * 2);
-  panel.lookAt(outwardDirection);
+  cardGroup.lookAt(outwardDirection);
   
-  panel.userData = {
+  cardGroup.userData = {
     id: i,
     originalScale: 1,
+    originalY: y,
     selected: false
   };
   
-  // Add subtle shadow
-  panel.castShadow = true;
-  panel.receiveShadow = true;
-  
-  coreGroup.add(panel);
-  panels.push(panel);
+  coreGroup.add(cardGroup);
+  panels.push(cardGroup);
 }
 
 // Custom rotation controls
@@ -305,11 +334,15 @@ function onPanelClick(event) {
   // Update the picking ray
   raycaster.setFromCamera(mouse, camera);
   
-  // Calculate intersections
-  const intersects = raycaster.intersectObjects(panels);
+  // Calculate intersections with all children recursively
+  const intersects = raycaster.intersectObjects(panels, true);
   
   if (intersects.length > 0) {
-    const clickedPanel = intersects[0].object;
+    // Get the parent card group
+    let clickedPanel = intersects[0].object;
+    while (clickedPanel.parent && !panels.includes(clickedPanel)) {
+      clickedPanel = clickedPanel.parent;
+    }
     
     // Prevent multiple clicks during animation
     if (!controls.enabled) return;
@@ -325,9 +358,11 @@ function onPanelClick(event) {
         duration: 0.5,
         ease: 'power2.out'
       });
-      gsap.to(selectedPanel.material, {
-        opacity: 1,
-        duration: 0.5
+      // Restore opacity on front panel
+      selectedPanel.children.forEach(child => {
+        if (child.material && child.material.opacity !== undefined) {
+          gsap.to(child.material, { opacity: 1, duration: 0.5 });
+        }
       });
     }
     
@@ -346,9 +381,10 @@ function onPanelClick(event) {
     // Dim other panels
     panels.forEach(panel => {
       if (panel !== clickedPanel) {
-        gsap.to(panel.material, {
-          opacity: 0.4,
-          duration: 0.5
+        panel.children.forEach(child => {
+          if (child.material && child.material.opacity !== undefined) {
+            gsap.to(child.material, { opacity: 0.4, duration: 0.5 });
+          }
         });
       }
     });
@@ -360,15 +396,8 @@ function onPanelClick(event) {
     const panelWorldPosition = new THREE.Vector3();
     clickedPanel.getWorldPosition(panelWorldPosition);
     
-    // Get current rotation
-    const currentRotation = {
-      x: coreGroup.rotation.x,
-      y: coreGroup.rotation.y
-    };
-    
     // Calculate target rotation to center the panel in front of camera
     const targetY = Math.atan2(panelWorldPosition.x, panelWorldPosition.z);
-    // Calculate horizontal distance from center for pitch angle
     const horizontalDistance = Math.sqrt(
       panelWorldPosition.x ** 2 + panelWorldPosition.z ** 2
     );
@@ -381,7 +410,6 @@ function onPanelClick(event) {
       duration: 1.5,
       ease: 'power2.inOut',
       onComplete: () => {
-        // Re-enable rotation after animation
         controls.enabled = true;
       }
     });
@@ -433,12 +461,6 @@ function animate() {
   if (autoRotate && !controls.isRotating) {
     coreGroup.rotation.y += autoRotateSpeed;
   }
-  
-  // Subtle floating animation for panels
-  const time = Date.now() * 0.001;
-  panels.forEach((panel, i) => {
-    panel.position.y += Math.sin(time + i * 0.5) * 0.001;
-  });
   
   // Use composer for post-processing
   composer.render();
