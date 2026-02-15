@@ -1,0 +1,2 @@
+For a real deployment, place a preview.mp4 video file (720x1280, vertical format) in this directory.
+The application will use this video as a texture for the creator panels.
