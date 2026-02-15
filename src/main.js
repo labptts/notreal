@@ -4,38 +4,52 @@ import { gsap } from 'gsap';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 // ============================================================
-// SCENE SETUP
+// CUSTOM CURSOR (inversion circle)
+// ============================================================
+const cursorEl = document.createElement('div');
+cursorEl.id = 'custom-cursor';
+cursorEl.style.cssText = `
+  position: fixed; top: 0; left: 0; width: 32px; height: 32px;
+  border-radius: 50%; pointer-events: none; z-index: 9999;
+  mix-blend-mode: difference; background: white;
+  transform: translate(-50%, -50%);
+  transition: width 0.25s ease, height 0.25s ease;
+`;
+document.body.appendChild(cursorEl);
+document.body.style.cursor = 'none';
+
+let cursorX = 0, cursorY = 0, cursorTargetX = 0, cursorTargetY = 0;
+document.addEventListener('mousemove', (e) => {
+  cursorTargetX = e.clientX;
+  cursorTargetY = e.clientY;
+});
+function updateCursor() {
+  cursorX += (cursorTargetX - cursorX) * 0.15;
+  cursorY += (cursorTargetY - cursorY) * 0.15;
+  cursorEl.style.left = cursorX + 'px';
+  cursorEl.style.top = cursorY + 'px';
+}
+function setCursorHover(isHover) {
+  const s = isHover ? '48px' : '32px';
+  cursorEl.style.width = s;
+  cursorEl.style.height = s;
+}
+
+// ============================================================
+// SCENE SETUP — white background
 // ============================================================
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
 
-function createNoiseBackground() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 2048;
-  canvas.height = 2048;
-  const ctx = canvas.getContext('2d');
-  const grad = ctx.createRadialGradient(1024, 1024, 0, 1024, 1024, 1400);
-  grad.addColorStop(0, '#f2f2f2');
-  grad.addColorStop(0.5, '#e8e8e8');
-  grad.addColorStop(1, '#d8d8d8');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 2048, 2048);
-  const imageData = ctx.getImageData(0, 0, 2048, 2048);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 12;
-    data[i] += noise;
-    data[i + 1] += noise;
-    data[i + 2] += noise;
-  }
-  ctx.putImageData(imageData, 0, 0);
-  return new THREE.CanvasTexture(canvas);
-}
-scene.background = createNoiseBackground();
+// Fog for depth haze
+scene.fog = new THREE.FogExp2(0xffffff, 0.012);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 20);
+const baseCameraZ = 22;
+camera.position.set(0, 0, baseCameraZ);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -124,16 +138,16 @@ const creators = [
   { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
 ];
 
-// Pyramid layout: 3 top row, 2 bottom row
-const sphereRadius = 1.8;
-const spacingX = 5.0;
-const spacingY = 5.0;
+// Pyramid layout: 3 top row, 2 bottom row — BIGGER spheres
+const sphereRadius = 2.6;
+const spacingX = 6.8;
+const spacingY = 6.8;
 const creatorPositions = [
-  new THREE.Vector3(-spacingX, spacingY * 0.45, 0),   // top-left
-  new THREE.Vector3(0, spacingY * 0.45, 0),            // top-center
-  new THREE.Vector3(spacingX, spacingY * 0.45, 0),     // top-right
-  new THREE.Vector3(-spacingX * 0.5, -spacingY * 0.45, 0), // bottom-left
-  new THREE.Vector3(spacingX * 0.5, -spacingY * 0.45, 0),  // bottom-right
+  new THREE.Vector3(-spacingX, spacingY * 0.45, 0),
+  new THREE.Vector3(0, spacingY * 0.45, 0),
+  new THREE.Vector3(spacingX, spacingY * 0.45, 0),
+  new THREE.Vector3(-spacingX * 0.5, -spacingY * 0.45, 0),
+  new THREE.Vector3(spacingX * 0.5, -spacingY * 0.45, 0),
 ];
 
 // ============================================================
@@ -189,6 +203,62 @@ function createSphericalPanelGeometry(radius, phiStart, phiLength, thetaStart, t
 }
 
 // ============================================================
+// IRIDESCENT + FRESNEL OVERLAY MATERIAL
+// ============================================================
+const iridescentShader = {
+  uniforms: {
+    time: { value: 0 },
+    iriIntensity: { value: 0.12 },
+    fresnelPower: { value: 3.0 },
+    fresnelIntensity: { value: 0.5 },
+  },
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+      vNormal = normalize(normalMatrix * normal);
+      vViewDir = normalize(-mvPos.xyz);
+      gl_Position = projectionMatrix * mvPos;
+    }
+  `,
+  fragmentShader: `
+    uniform float time;
+    uniform float iriIntensity;
+    uniform float fresnelPower;
+    uniform float fresnelIntensity;
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec2 vUv;
+
+    vec3 iridescence(float angle) {
+      // Thin-film interference approximation
+      float t = angle * 6.2832 + time * 0.3;
+      return vec3(
+        0.5 + 0.5 * cos(t),
+        0.5 + 0.5 * cos(t + 2.094),
+        0.5 + 0.5 * cos(t + 4.189)
+      );
+    }
+
+    void main() {
+      float fresnel = pow(1.0 - max(dot(vNormal, vViewDir), 0.0), fresnelPower);
+
+      // Iridescent color based on view angle
+      float angle = dot(vNormal, vViewDir);
+      vec3 iriColor = iridescence(angle) * iriIntensity * fresnel;
+
+      // Fresnel rim glow (white)
+      vec3 rimGlow = vec3(1.0) * fresnel * fresnelIntensity;
+
+      gl_FragColor = vec4(iriColor + rimGlow, fresnel * 0.6);
+    }
+  `
+};
+
+// ============================================================
 // CREATE PROJECT LABEL TEXTURE (for each panel)
 // ============================================================
 function createProjectLabelTexture(projectName) {
@@ -198,14 +268,12 @@ function createProjectLabelTexture(projectName) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 1024, 1024);
 
-  // Semi-transparent gradient overlay at bottom
   const grad = ctx.createLinearGradient(0, 700, 0, 1024);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 700, 1024, 324);
 
-  // Project name
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
   ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
   ctx.textAlign = 'center';
@@ -225,15 +293,17 @@ function createProjectLabelTexture(projectName) {
 // ============================================================
 // BUILD CREATOR SPHERES
 // ============================================================
-const creatorGroups = [];    // groups positioned in the scene
-const sphereMeshGroups = []; // the inner rotating sphere part per creator
-const allPanels = [];        // flat list of all panel meshes for raycasting
-const innerSpheres = [];     // inner sphere meshes (to ignore in raycasting)
+const creatorGroups = [];
+const sphereMeshGroups = [];
+const allPanels = [];
+const innerSpheres = [];
+const iridescentMeshes = []; // for time uniform update
 
-const gap = 0.04;
-// 4 panels: 2 rows x 2 columns on sphere
+// NO GAP — panels fully adjacent
+const gap = 0.0;
+// 4 panels: 2 rows x 2 columns covering visible sphere
 const panelLayout = [];
-const phiBoundaries = [0.35, Math.PI / 2, Math.PI - 0.35];
+const phiBoundaries = [0.25, Math.PI / 2, Math.PI - 0.25];
 const panelsPerRow = 2;
 for (let row = 0; row < 2; row++) {
   const phiStart = phiBoundaries[row] + gap;
@@ -248,18 +318,23 @@ for (let row = 0; row < 2; row++) {
 }
 
 creators.forEach((creator, ci) => {
-  // Outer group: handles position in scene
   const creatorGroup = new THREE.Group();
   creatorGroup.position.copy(creatorPositions[ci]);
+  // Store original Y for floating animation
+  creatorGroup.userData = { creatorIndex: ci, name: creator.name, baseY: creatorPositions[ci].y };
   scene.add(creatorGroup);
 
-  // Inner sphere group: this is what rotates when dragged
   const sphereGroup = new THREE.Group();
   creatorGroup.add(sphereGroup);
 
-  // Gap-filling inner sphere
-  const innerGeo = new THREE.SphereGeometry(sphereRadius - 0.03, 48, 48);
-  const innerMat = new THREE.MeshBasicMaterial({ color: 0xe8e8e8, side: THREE.FrontSide });
+  // Inner sphere — no more gaps visible
+  const innerGeo = new THREE.SphereGeometry(sphereRadius - 0.02, 64, 64);
+  const innerMat = new THREE.MeshPhysicalMaterial({
+    color: 0x222222,
+    side: THREE.FrontSide,
+    roughness: 0.8,
+    metalness: 0.1
+  });
   const innerSphere = new THREE.Mesh(innerGeo, innerMat);
   sphereGroup.add(innerSphere);
   innerSpheres.push(innerSphere);
@@ -269,16 +344,16 @@ creators.forEach((creator, ci) => {
     const config = panelLayout[pi];
     const cardGroup = new THREE.Group();
 
-    // Front
+    // Front panel
     const frontGeo = createSphericalPanelGeometry(sphereRadius, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const frontMat = new THREE.MeshPhysicalMaterial({
       map: panelImage,
       side: THREE.FrontSide,
-      roughness: 0.3,
+      roughness: 0.25,
       metalness: 0.05,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.2,
-      envMapIntensity: 0.6,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.15,
+      envMapIntensity: 0.7,
       transparent: true,
       opacity: 1
     });
@@ -286,7 +361,7 @@ creators.forEach((creator, ci) => {
     cardGroup.add(frontPanel);
 
     // Project label overlay
-    const labelGeo = createSphericalPanelGeometry(sphereRadius + 0.01, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
+    const labelGeo = createSphericalPanelGeometry(sphereRadius + 0.005, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const labelMat = new THREE.MeshBasicMaterial({
       map: createProjectLabelTexture(projName),
       side: THREE.FrontSide,
@@ -297,7 +372,7 @@ creators.forEach((creator, ci) => {
     cardGroup.add(labelPanel);
 
     // Back
-    const backGeo = createSphericalPanelGeometry(sphereRadius - 0.03, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
+    const backGeo = createSphericalPanelGeometry(sphereRadius - 0.02, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const backMat = new THREE.MeshPhysicalMaterial({
       color: 0x111111,
       side: THREE.BackSide,
@@ -319,17 +394,33 @@ creators.forEach((creator, ci) => {
     allPanels.push(cardGroup);
   });
 
-  // Slight random initial rotation per sphere
+  // Iridescent + Fresnel overlay sphere (full sphere on top)
+  const iriGeo = new THREE.SphereGeometry(sphereRadius + 0.02, 64, 64);
+  const iriMat = new THREE.ShaderMaterial({
+    ...iridescentShader,
+    uniforms: {
+      time: { value: 0 },
+      iriIntensity: { value: 0.12 },
+      fresnelPower: { value: 3.0 },
+      fresnelIntensity: { value: 0.5 },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.FrontSide,
+  });
+  const iriMesh = new THREE.Mesh(iriGeo, iriMat);
+  sphereGroup.add(iriMesh);
+  iridescentMeshes.push(iriMat);
+
   sphereGroup.rotation.y = Math.random() * Math.PI * 2;
   sphereGroup.rotation.x = (Math.random() - 0.5) * 0.3;
 
-  creatorGroup.userData = { creatorIndex: ci, name: creator.name };
   creatorGroups.push(creatorGroup);
   sphereMeshGroups.push(sphereGroup);
 });
 
 // ============================================================
-// HTML NAME LABELS (CSS2D-style, manually projected)
+// HTML NAME LABELS — with blur-reveal animation
 // ============================================================
 const nameLabelsContainer = document.createElement('div');
 nameLabelsContainer.id = 'name-labels';
@@ -342,34 +433,42 @@ const nameLabels = creators.map((creator, i) => {
   el.textContent = creator.name;
   el.style.cssText = `
     position: absolute;
-    color: #333;
-    font-size: 14px;
+    color: #222;
+    font-size: 13px;
     font-weight: 500;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
     text-transform: uppercase;
     font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
     white-space: nowrap;
     transform: translate(-50%, 0);
     text-align: center;
-    opacity: 0.85;
-    transition: opacity 0.3s;
+    opacity: 0;
+    filter: blur(12px);
+    transition: opacity 0.3s, filter 0.3s;
   `;
   nameLabelsContainer.appendChild(el);
   return el;
 });
 
+// Blur-reveal on load
+setTimeout(() => {
+  nameLabels.forEach((el, i) => {
+    setTimeout(() => {
+      el.style.opacity = '0.85';
+      el.style.filter = 'blur(0px)';
+    }, 300 + i * 120);
+  });
+}, 600);
+
 function updateNameLabels() {
   creatorGroups.forEach((group, i) => {
-    // Project label position below the sphere
-    const worldPos = new THREE.Vector3(0, -(sphereRadius + 0.5), 0);
+    const worldPos = new THREE.Vector3(0, -(sphereRadius + 0.7), 0);
     group.localToWorld(worldPos);
     worldPos.project(camera);
     const x = (worldPos.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-worldPos.y * 0.5 + 0.5) * window.innerHeight;
     nameLabels[i].style.left = x + 'px';
     nameLabels[i].style.top = y + 'px';
-
-    // Hide if behind camera
     nameLabels[i].style.display = worldPos.z > 1 ? 'none' : 'block';
   });
 }
@@ -382,7 +481,9 @@ let selectedPanel = null;
 let selectedCreatorIndex = -1;
 let mouseX = 0;
 let mouseY = 0;
-const baseCameraPos = new THREE.Vector3(0, 0, 20);
+const baseCameraPos = new THREE.Vector3(0, 0, baseCameraZ);
+// Camera offset from drag-pan
+const cameraPanOffset = new THREE.Vector2(0, 0);
 
 document.addEventListener('mousemove', (e) => {
   mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -390,23 +491,37 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // ============================================================
-// PER-SPHERE DRAG ROTATION
+// SCROLL ZOOM
 // ============================================================
-class SphereRotationController {
+const ZOOM_MIN = 12;
+const ZOOM_MAX = 30;
+renderer.domElement.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (isDetailView) return;
+  const delta = e.deltaY * 0.01;
+  baseCameraPos.z = THREE.MathUtils.clamp(baseCameraPos.z + delta, ZOOM_MIN, ZOOM_MAX);
+}, { passive: false });
+
+// ============================================================
+// CAMERA PAN (drag on empty space) + PER-SPHERE ROTATION (drag on sphere)
+// ============================================================
+class InteractionController {
   constructor(domElement) {
     this.domElement = domElement;
+    // Sphere rotation
     this.activeSphere = null;
     this.activeSphereIndex = -1;
-    this.isRotating = false;
+    this.isRotatingSphere = false;
+    this.velocities = creators.map(() => ({ x: 0, y: 0 }));
+    this.dampingFactor = 0.92;
+    // Camera pan
+    this.isPanning = false;
+    this.panVelocity = new THREE.Vector2(0, 0);
+    // Common
     this.previousMouse = { x: 0, y: 0 };
     this.startMouse = { x: 0, y: 0 };
-    this.velocities = [];  // per-sphere velocities
-    this.dampingFactor = 0.92;
     this.hasDragged = false;
-
-    for (let i = 0; i < creators.length; i++) {
-      this.velocities.push({ x: 0, y: 0 });
-    }
+    this.wasPanning = false; // if most recent drag was a pan (not sphere)
 
     this.setupEvents();
   }
@@ -433,10 +548,8 @@ class SphereRotationController {
     const mx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     const my = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
-
     for (let i = 0; i < sphereMeshGroups.length; i++) {
-      const objects = sphereMeshGroups[i].children;
-      const hits = raycaster.intersectObjects(objects, true);
+      const hits = raycaster.intersectObjects(sphereMeshGroups[i].children, true);
       if (hits.length > 0) return i;
     }
     return -1;
@@ -447,50 +560,63 @@ class SphereRotationController {
     this.startMouse = { x: event.clientX, y: event.clientY };
     this.previousMouse = { x: event.clientX, y: event.clientY };
     this.hasDragged = false;
+    this.wasPanning = false;
 
     const idx = this.hitTestSphere(event);
     if (idx >= 0) {
+      // Start sphere rotation
       this.activeSphereIndex = idx;
       this.activeSphere = sphereMeshGroups[idx];
-      this.isRotating = true;
+      this.isRotatingSphere = true;
       this.velocities[idx] = { x: 0, y: 0 };
+    } else {
+      // Start camera pan
+      this.isPanning = true;
+      this.panVelocity.set(0, 0);
     }
   }
 
   onMove(event) {
-    if (!this.isRotating || !this.activeSphere || isDetailView) return;
+    if (isDetailView) return;
 
     const dx = event.clientX - this.previousMouse.x;
     const dy = event.clientY - this.previousMouse.y;
-
     const totalDx = event.clientX - this.startMouse.x;
     const totalDy = event.clientY - this.startMouse.y;
     if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > 3) {
       this.hasDragged = true;
     }
 
-    const speed = 0.006;
-    this.activeSphere.rotation.y += dx * speed;
-    this.activeSphere.rotation.x += dy * speed;
-
-    const idx = this.activeSphereIndex;
-    this.velocities[idx].x = dy * speed;
-    this.velocities[idx].y = dx * speed;
+    if (this.isRotatingSphere && this.activeSphere) {
+      const speed = 0.006;
+      this.activeSphere.rotation.y += dx * speed;
+      this.activeSphere.rotation.x += dy * speed;
+      const idx = this.activeSphereIndex;
+      this.velocities[idx].x = dy * speed;
+      this.velocities[idx].y = dx * speed;
+    } else if (this.isPanning) {
+      this.wasPanning = true;
+      const panSpeed = 0.012;
+      cameraPanOffset.x -= dx * panSpeed;
+      cameraPanOffset.y += dy * panSpeed;
+      this.panVelocity.set(-dx * panSpeed, dy * panSpeed);
+    }
 
     this.previousMouse = { x: event.clientX, y: event.clientY };
   }
 
   onUp() {
-    this.isRotating = false;
+    this.isRotatingSphere = false;
     this.activeSphere = null;
+    this.isPanning = false;
   }
 
   update() {
+    // Sphere inertia + auto-rotate
     for (let i = 0; i < sphereMeshGroups.length; i++) {
       const sg = sphereMeshGroups[i];
       const v = this.velocities[i];
-
-      if (this.activeSphereIndex !== i || !this.isRotating) {
+      if (this.activeSphereIndex !== i || !this.isRotatingSphere) {
         sg.rotation.x += v.x;
         sg.rotation.y += v.y;
         v.x *= this.dampingFactor;
@@ -498,16 +624,24 @@ class SphereRotationController {
         if (Math.abs(v.x) < 0.0001) v.x = 0;
         if (Math.abs(v.y) < 0.0001) v.y = 0;
       }
-
-      // Slow auto-rotation when idle
-      if (!this.isRotating || this.activeSphereIndex !== i) {
+      if (!this.isRotatingSphere || this.activeSphereIndex !== i) {
         sg.rotation.y += 0.001;
       }
     }
+    // Pan inertia
+    if (!this.isPanning) {
+      cameraPanOffset.x += this.panVelocity.x;
+      cameraPanOffset.y += this.panVelocity.y;
+      this.panVelocity.multiplyScalar(0.9);
+      if (this.panVelocity.length() < 0.0001) this.panVelocity.set(0, 0);
+    }
+    // Clamp pan
+    cameraPanOffset.x = THREE.MathUtils.clamp(cameraPanOffset.x, -5, 5);
+    cameraPanOffset.y = THREE.MathUtils.clamp(cameraPanOffset.y, -4, 4);
   }
 }
 
-const sphereController = new SphereRotationController(renderer.domElement);
+const controller = new InteractionController(renderer.domElement);
 
 // ============================================================
 // RAYCASTING
@@ -528,6 +662,8 @@ function findFrontFacingPanel(intersects) {
   for (const intersect of intersects) {
     if (innerSpheres.includes(intersect.object)) continue;
     if (intersect.object.material && intersect.object.material.side === THREE.BackSide) continue;
+    // Skip iridescent overlay
+    if (intersect.object.material && intersect.object.material.isShaderMaterial) continue;
     if (isFrontFacing(intersect)) {
       let panel = intersect.object;
       while (panel.parent && !allPanels.includes(panel)) {
@@ -542,21 +678,26 @@ function findFrontFacingPanel(intersects) {
 }
 
 // ============================================================
-// HOVER
+// HOVER + MAGNETIC TILT
 // ============================================================
-function onMouseMove(event) {
+const hoverTilts = creators.map(() => ({ x: 0, y: 0 }));
+
+function onMouseMoveHover(event) {
   const rect = renderer.domElement.getBoundingClientRect();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-  if (isDetailView) return;
+  if (isDetailView || controller.isPanning || controller.wasPanning) {
+    setCursorHover(false);
+    return;
+  }
 
   raycaster.setFromCamera(mouse, camera);
   const allObjects = sphereMeshGroups.flatMap(sg => sg.children.flatMap(c => c.children || [c]));
   const intersects = raycaster.intersectObjects(allObjects, true);
   const hit = findFrontFacingPanel(intersects);
 
-  if (hit) {
+  if (hit && !controller.isRotatingSphere) {
     const panel = hit.panel;
     if (hoveredPanel !== panel) {
       if (hoveredPanel) unhoverPanel(hoveredPanel);
@@ -570,13 +711,30 @@ function onMouseMove(event) {
         }
       });
     }
-    renderer.domElement.style.cursor = 'pointer';
+
+    // Magnetic tilt: tilt the entire creator sphere towards cursor
+    const ci = panel.userData.creatorIndex;
+    const group = creatorGroups[ci];
+    const worldPos = new THREE.Vector3();
+    group.getWorldPosition(worldPos);
+    worldPos.project(camera);
+    const sx = (worldPos.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-worldPos.y * 0.5 + 0.5) * window.innerHeight;
+    const offX = (event.clientX - sx) / window.innerWidth;
+    const offY = (event.clientY - sy) / window.innerHeight;
+    hoverTilts[ci].x = offY * 0.15;
+    hoverTilts[ci].y = offX * 0.15;
+
+    setCursorHover(true);
   } else {
     if (hoveredPanel) {
+      const ci = hoveredPanel.userData.creatorIndex;
+      hoverTilts[ci].x = 0;
+      hoverTilts[ci].y = 0;
       unhoverPanel(hoveredPanel);
       hoveredPanel = null;
     }
-    renderer.domElement.style.cursor = sphereController.isRotating ? 'grabbing' : 'default';
+    setCursorHover(false);
   }
 }
 
@@ -590,27 +748,18 @@ function unhoverPanel(panel) {
   panel.userData.isHovered = false;
 }
 
-renderer.domElement.addEventListener('mousemove', onMouseMove);
+renderer.domElement.addEventListener('mousemove', onMouseMoveHover);
 
 // ============================================================
 // DETAIL VIEW
 // ============================================================
-// Info panel overlay (HTML)
 const infoPanel = document.createElement('div');
 infoPanel.id = 'info-panel';
 infoPanel.style.cssText = `
-  position: fixed;
-  right: 60px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 320px;
-  padding: 40px;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  z-index: 100;
-  opacity: 0;
-  pointer-events: none;
+  position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
+  width: 320px; padding: 40px;
+  background: rgba(255,255,255,0.95); backdrop-filter: blur(20px);
+  border-radius: 16px; z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
@@ -621,14 +770,14 @@ infoPanel.innerHTML = `
   <div style="font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 24px;">This is a showcase project demonstrating creative work and artistic vision.</div>
   <button id="info-close" style="
     background: #1a1a1a; color: white; border: none; padding: 12px 28px; border-radius: 8px;
-    font-size: 14px; cursor: pointer; font-family: inherit; letter-spacing: 1px; transition: background 0.2s;
+    font-size: 14px; cursor: none; font-family: inherit; letter-spacing: 1px; transition: background 0.2s;
   ">Close</button>
 `;
 document.body.appendChild(infoPanel);
 
 document.getElementById('info-close').addEventListener('click', returnToOverview);
-document.getElementById('info-close').addEventListener('mouseenter', (e) => { e.target.style.background = '#333'; });
-document.getElementById('info-close').addEventListener('mouseleave', (e) => { e.target.style.background = '#1a1a1a'; });
+document.getElementById('info-close').addEventListener('mouseenter', (e) => { e.target.style.background = '#333'; setCursorHover(true); });
+document.getElementById('info-close').addEventListener('mouseleave', (e) => { e.target.style.background = '#1a1a1a'; setCursorHover(false); });
 
 function openDetailView(panel) {
   if (isDetailView) return;
@@ -636,23 +785,20 @@ function openDetailView(panel) {
   selectedPanel = panel;
   selectedCreatorIndex = panel.userData.creatorIndex;
 
-  // Update info panel text
   document.getElementById('info-creator').textContent = panel.userData.creatorName;
   document.getElementById('info-project').textContent = panel.userData.projectName;
 
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
 
-  // Zoom camera towards this creator's sphere
   gsap.to(camera.position, {
     x: targetPos.x,
     y: targetPos.y,
-    z: 10,
+    z: 12,
     duration: 1.0,
     ease: 'power3.inOut'
   });
 
-  // Fade other creators
   creatorGroups.forEach((g, i) => {
     if (i !== selectedCreatorIndex) {
       gsap.to(g.position, { z: -3, duration: 0.8, ease: 'power2.in' });
@@ -671,16 +817,15 @@ function openDetailView(panel) {
         }
       });
       nameLabels[i].style.opacity = '0';
+      nameLabels[i].style.filter = 'blur(8px)';
     }
   });
 
-  // Show info panel
   setTimeout(() => {
     infoPanel.style.opacity = '1';
     infoPanel.style.pointerEvents = 'auto';
   }, 500);
 
-  // Hide instructions
   const instr = document.getElementById('instructions');
   if (instr) instr.style.opacity = '0';
 }
@@ -689,20 +834,17 @@ function returnToOverview() {
   if (!isDetailView) return;
   isDetailView = false;
 
-  // Hide info panel
   infoPanel.style.opacity = '0';
   infoPanel.style.pointerEvents = 'none';
 
-  // Reset camera
   gsap.to(camera.position, {
-    x: baseCameraPos.x,
-    y: baseCameraPos.y,
+    x: baseCameraPos.x + cameraPanOffset.x,
+    y: baseCameraPos.y + cameraPanOffset.y,
     z: baseCameraPos.z,
     duration: 1.0,
     ease: 'power3.inOut'
   });
 
-  // Restore all creators
   creatorGroups.forEach((g, i) => {
     gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
     sphereMeshGroups[i].children.forEach(child => {
@@ -714,9 +856,9 @@ function returnToOverview() {
       if (child.material) gsap.to(child.material, { opacity: 1, duration: 0.6 });
     });
     nameLabels[i].style.opacity = '0.85';
+    nameLabels[i].style.filter = 'blur(0px)';
   });
 
-  // Show instructions
   const instr = document.getElementById('instructions');
   if (instr) instr.style.opacity = '0.8';
 
@@ -724,9 +866,10 @@ function returnToOverview() {
   selectedCreatorIndex = -1;
 }
 
-// Click handler
+// Click — only if not dragged AND not panning
 renderer.domElement.addEventListener('click', (event) => {
-  if (sphereController.hasDragged) return;
+  if (controller.hasDragged) return;
+  if (controller.wasPanning) return;
 
   if (isDetailView) {
     returnToOverview();
@@ -747,7 +890,6 @@ renderer.domElement.addEventListener('click', (event) => {
   }
 });
 
-// ESC to close detail
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && isDetailView) returnToOverview();
 });
@@ -776,16 +918,25 @@ setTimeout(() => {
 }, 500);
 
 // ============================================================
-// POST-PROCESSING
+// POST-PROCESSING: Film Grain/CA + Bloom
 // ============================================================
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
+
+// Bloom
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.35,  // strength
+  0.6,   // radius
+  0.85   // threshold
+);
+composer.addPass(bloomPass);
 
 const filmGrainCA = {
   uniforms: {
     tDiffuse: { value: null },
     time: { value: 0 },
-    grainIntensity: { value: 0.02 },
+    grainIntensity: { value: 0.018 },
     caOffset: { value: 0.0003 }
   },
   vertexShader: `
@@ -831,20 +982,35 @@ function animate() {
   requestAnimationFrame(animate);
   time += 0.016;
 
-  sphereController.update();
+  controller.update();
+  updateCursor();
 
-  // Parallax camera
+  // Floating / breathing animation — each sphere bobbles with unique phase
+  creatorGroups.forEach((group, i) => {
+    const phase = i * 1.3;
+    const floatY = Math.sin(time * 0.8 + phase) * 0.15;
+    group.position.y = group.userData.baseY + floatY;
+
+    // Apply magnetic hover tilt (smooth lerp)
+    const tilt = hoverTilts[i];
+    group.rotation.x += (tilt.x - group.rotation.x) * 0.08;
+    group.rotation.y += (tilt.y - group.rotation.y) * 0.08;
+  });
+
+  // Update iridescent shader time
+  iridescentMeshes.forEach(mat => { mat.uniforms.time.value = time; });
+
+  // Camera
   if (!isDetailView) {
-    camera.position.x = baseCameraPos.x + mouseX * 0.6;
-    camera.position.y = baseCameraPos.y - mouseY * 0.4;
-    camera.lookAt(0, 0, 0);
+    camera.position.x = baseCameraPos.x + cameraPanOffset.x + mouseX * 0.4;
+    camera.position.y = baseCameraPos.y + cameraPanOffset.y - mouseY * 0.3;
+    camera.position.z += (baseCameraPos.z - camera.position.z) * 0.08;
+    camera.lookAt(cameraPanOffset.x, cameraPanOffset.y, 0);
   } else {
-    // In detail view, subtle parallax around the selected creator
     const target = creatorGroups[selectedCreatorIndex]?.position || new THREE.Vector3();
     camera.lookAt(target.x, target.y, 0);
   }
 
-  // Update name label positions
   updateNameLabels();
 
   filmGrainPass.uniforms.time.value = time;
