@@ -4,7 +4,6 @@ import { gsap } from 'gsap';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -55,41 +54,40 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
+renderer.toneMappingExposure = 1.1;
 document.querySelector('#app').appendChild(renderer.domElement);
 
 // Premium Lighting Setup
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
 scene.add(ambientLight);
 
-// Key light with shadows
-const keyLight = new THREE.DirectionalLight(0xffffff, 0.5);
-keyLight.position.set(8, 12, 10);
-keyLight.castShadow = true;
-keyLight.shadow.mapSize.width = 2048;
-keyLight.shadow.mapSize.height = 2048;
-keyLight.shadow.camera.near = 1;
-keyLight.shadow.camera.far = 50;
-keyLight.shadow.camera.left = -15;
-keyLight.shadow.camera.right = 15;
-keyLight.shadow.camera.top = 15;
-keyLight.shadow.camera.bottom = -15;
-keyLight.shadow.bias = -0.001;
-keyLight.shadow.radius = 4;
+// Key light - bright, warm, from upper right
+const keyLight = new THREE.DirectionalLight(0xfff8f0, 1.2);
+keyLight.position.set(8, 10, 8);
+keyLight.castShadow = false;
 scene.add(keyLight);
 
-// Fill light
-const fillLight = new THREE.DirectionalLight(0xe8e8ff, 0.3);
-fillLight.position.set(-8, 5, 5);
+// Fill light - cool, softer, from left
+const fillLight = new THREE.DirectionalLight(0xe0e8ff, 0.5);
+fillLight.position.set(-10, 3, 5);
 scene.add(fillLight);
 
-// Rim light
-const rimLight = new THREE.DirectionalLight(0xfff5e6, 0.2);
-rimLight.position.set(0, -8, -8);
+// Rim light - warm backlight for edge definition
+const rimLight = new THREE.DirectionalLight(0xffeedd, 0.7);
+rimLight.position.set(-3, -5, -10);
 scene.add(rimLight);
+
+// Top accent light
+const topLight = new THREE.DirectionalLight(0xffffff, 0.3);
+topLight.position.set(0, 15, 0);
+scene.add(topLight);
+
+// Soft point light for specular highlight
+const specLight = new THREE.PointLight(0xffffff, 0.8, 30);
+specLight.position.set(5, 5, 12);
+scene.add(specLight);
 
 // Studio HDRI environment - gradient sphere with warm/cool zones
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -225,84 +223,49 @@ function createSphericalPanelGeometry(radius, phiStart, phiLength, thetaStart, t
   return geometry;
 }
 
-// Premium texture for each panel
-function createPremiumTexture(index, label) {
-  const premiumColors = [
-    ['#1a1a2e', '#16213e', '#0f3460'],
-    ['#2d1b69', '#574b90', '#9b89b3'],
-    ['#0c0c0c', '#1c1c1c', '#2d2d2d'],
-    ['#1e3a5f', '#3d5a80', '#98c1d9'],
-    ['#5c2751', '#912f56', '#d63864'],
-    ['#0d1b2a', '#1b263b', '#415a77'],
-    ['#2b2d42', '#8d99ae', '#edf2f4'],
-  ];
-  const colorSet = premiumColors[index % premiumColors.length];
-  
+// Load panel image
+const textureLoader = new THREE.TextureLoader();
+const panelImage = textureLoader.load('/Mangiant.png');
+panelImage.colorSpace = THREE.SRGBColorSpace;
+panelImage.minFilter = THREE.LinearMipmapLinearFilter;
+panelImage.magFilter = THREE.LinearFilter;
+panelImage.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+// Create text overlay texture for panel
+function createTextOverlay() {
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1024;
+  canvas.width = 2048;
+  canvas.height = 2048;
   const ctx = canvas.getContext('2d');
   
-  // Gradient background
-  const gradient = ctx.createLinearGradient(0, 0, 1024, 1024);
-  gradient.addColorStop(0, colorSet[0]);
-  gradient.addColorStop(0.5, colorSet[1]);
-  gradient.addColorStop(1, colorSet[2]);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 1024, 1024);
+  // Transparent background
+  ctx.clearRect(0, 0, 2048, 2048);
   
-  // Subtle glossy highlight
-  const highlightGradient = ctx.createRadialGradient(350, 350, 0, 512, 512, 700);
-  highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
-  highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.03)');
-  highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = highlightGradient;
-  ctx.fillRect(0, 0, 1024, 1024);
-  
-  // Inner shadow / vignette around panel edges for depth
-  const vignetteGrad = ctx.createRadialGradient(512, 512, 300, 512, 512, 720);
-  vignetteGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  vignetteGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.03)');
-  vignetteGrad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
-  ctx.fillStyle = vignetteGrad;
-  ctx.fillRect(0, 0, 1024, 1024);
-  
-  // Subtle noise/grain for texture
-  const grainData = ctx.getImageData(0, 0, 1024, 1024);
-  const gd = grainData.data;
-  for (let gi = 0; gi < gd.length; gi += 4) {
-    const grain = (Math.random() - 0.5) * 8;
-    gd[gi] = Math.max(0, Math.min(255, gd[gi] + grain));
-    gd[gi + 1] = Math.max(0, Math.min(255, gd[gi + 1] + grain));
-    gd[gi + 2] = Math.max(0, Math.min(255, gd[gi + 2] + grain));
-  }
-  ctx.putImageData(grainData, 0, 0);
-  
-  // Typography
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-  ctx.font = '600 48px "SF Pro Display", "Helvetica Neue", Arial';
+  // Typography - "Vova Grankin"
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.font = '500 72px "SF Pro Display", "Helvetica Neue", Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-  ctx.shadowBlur = 20;
-  ctx.shadowOffsetY = 3;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 4;
   
-  ctx.fillText('CREATOR', 512, 460);
+  ctx.fillText('Vova Grankin', 1024, 950);
   
-  ctx.font = '200 110px "SF Pro Display", "Helvetica Neue", Arial';
-  ctx.fillText('0' + (index + 1), 512, 580);
-  
+  // Decorative line
   ctx.shadowColor = 'transparent';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-  ctx.fillRect(412, 660, 200, 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.fillRect(824, 1040, 400, 2);
   
   const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   
   return texture;
 }
+
+const textOverlay = createTextOverlay();
 
 // Create panels
 const panels = [];
@@ -348,27 +311,40 @@ for (let i = 0; i < numPanels; i++) {
     sphereRadius - 0.03, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength
   );
   
-  const texture = createPremiumTexture(i);
+  const texture = panelImage;
   
   const cardGroup = new THREE.Group();
   
-  // Front material with texture
+  // Front material with photo texture
   const frontMaterial = new THREE.MeshPhysicalMaterial({
     map: texture,
     side: THREE.FrontSide,
-    roughness: 0.28,
-    metalness: 0.03,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.25,
-    envMapIntensity: 0.5,
+    roughness: 0.3,
+    metalness: 0.05,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.2,
+    envMapIntensity: 0.6,
     transparent: true,
     opacity: 1
   });
   
   const frontPanel = new THREE.Mesh(frontGeometry, frontMaterial);
-  frontPanel.castShadow = true;
-  frontPanel.receiveShadow = true;
+  frontPanel.castShadow = false;
+  frontPanel.receiveShadow = false;
   cardGroup.add(frontPanel);
+  
+  // Text overlay layer (slightly above front panel)
+  const textGeometry = createSphericalPanelGeometry(
+    sphereRadius + 0.01, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength
+  );
+  const textMaterial = new THREE.MeshBasicMaterial({
+    map: textOverlay,
+    side: THREE.FrontSide,
+    transparent: true,
+    depthWrite: false
+  });
+  const textPanel = new THREE.Mesh(textGeometry, textMaterial);
+  cardGroup.add(textPanel);
   
   // Back panel (inside of sphere)
   const backMaterial = new THREE.MeshPhysicalMaterial({
@@ -378,7 +354,7 @@ for (let i = 0; i < numPanels; i++) {
     metalness: 0.1
   });
   const backPanel = new THREE.Mesh(backGeometry, backMaterial);
-  backPanel.castShadow = true;
+  backPanel.castShadow = false;
   cardGroup.add(backPanel);
   
   cardGroup.userData = {
@@ -802,21 +778,15 @@ const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 
-// Subtle Depth of Field (Bokeh)
-const bokehPass = new BokehPass(scene, camera, {
-  focus: 16.0,
-  aperture: 0.0008,
-  maxblur: 0.006
-});
-composer.addPass(bokehPass);
+// Subtle Depth of Field removed — was causing text blur
 
 // Film grain + chromatic aberration shader
 const filmGrainCA = {
   uniforms: {
     tDiffuse: { value: null },
     time: { value: 0 },
-    grainIntensity: { value: 0.04 },
-    caOffset: { value: 0.0006 }
+    grainIntensity: { value: 0.025 },
+    caOffset: { value: 0.0004 }
   },
   vertexShader: `
     varying vec2 vUv;
