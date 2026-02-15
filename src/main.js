@@ -116,6 +116,9 @@ shadowPlane.position.y = -6;
 shadowPlane.receiveShadow = true;
 scene.add(shadowPlane);
 
+// Sphere radius
+const sphereRadius = 5;
+
 // Core Group
 const coreGroup = new THREE.Group();
 scene.add(coreGroup);
@@ -244,7 +247,6 @@ function createPremiumTexture(index, label) {
 
 // Create panels
 const panels = [];
-const sphereRadius = 5;
 const numPanels = 7;
 const gap = 0.012; // Thin gap between panels
 
