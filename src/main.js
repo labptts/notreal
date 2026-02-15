@@ -15,7 +15,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.z = 12;
+camera.position.z = 9;
 
 const renderer = new THREE.WebGLRenderer({ 
   antialias: true,
@@ -148,7 +148,7 @@ function createPremiumTexture(index) {
 
 // Create 7 panels arranged in a sphere
 const panels = [];
-const sphereRadius = 5;
+const sphereRadius = 3;
 const numPanels = 7;
 
 for (let i = 0; i < numPanels; i++) {
@@ -157,8 +157,8 @@ for (let i = 0; i < numPanels; i++) {
   const theta = Math.PI * (1 + Math.sqrt(5)) * i;
   
   // Simple flat panel geometry
-  const panelWidth = 2.8;
-  const panelHeight = 4;
+  const panelWidth = 2.2;
+  const panelHeight = 3.2;
   const geometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
   
   const texture = createPremiumTexture(i);
