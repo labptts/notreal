@@ -175,7 +175,9 @@ panelPositions.forEach((pos, index) => {
     map: texture,
     side: THREE.DoubleSide,
     emissive: 0x222222,
-    emissiveIntensity: 0.2
+    emissiveIntensity: 0.2,
+    transparent: true,
+    opacity: 1
   });
   
   const panel = new THREE.Mesh(geometry, material);
@@ -403,6 +405,16 @@ function onWindowResize() {
 }
 
 window.addEventListener('resize', onWindowResize);
+
+// Hide loading indicator once ready
+setTimeout(() => {
+  const loading = document.getElementById('loading');
+  if (loading) {
+    loading.style.transition = 'opacity 0.5s';
+    loading.style.opacity = '0';
+    setTimeout(() => loading.remove(), 500);
+  }
+}, 500);
 
 // Animation loop
 function animate() {
