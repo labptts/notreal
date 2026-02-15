@@ -56,7 +56,8 @@ scene.add(coreGroup);
 // Fibonacci Sphere algorithm for even distribution
 function fibonacciSphere(samples) {
   const points = [];
-  const phi = Math.PI * (3 - Math.sqrt(5)); // Golden angle
+  // Golden angle in radians (~137.5 degrees) - used for optimal point distribution on sphere
+  const phi = Math.PI * (3 - Math.sqrt(5));
 
   for (let i = 0; i < samples; i++) {
     const y = 1 - (i / (samples - 1)) * 2; // y goes from 1 to -1
@@ -130,29 +131,8 @@ function createVideoTexture(index) {
   ctx.font = '40px Arial';
   ctx.fillText(`#${index + 1}`, 360, 700);
   
-  // Try to load video
-  const video = document.createElement('video');
-  video.src = '/preview.mp4';
-  video.crossOrigin = 'anonymous';
-  video.loop = true;
-  video.muted = true;
-  video.playsInline = true;
-  
-  let useCanvas = false;
-  
-  // Attempt to play video
-  video.play().catch(() => {
-    useCanvas = true;
-  });
-  
-  // Check after a short delay if video loaded
-  setTimeout(() => {
-    if (video.readyState < 2) {
-      useCanvas = true;
-    }
-  }, 100);
-  
-  // Use canvas texture for now (video fallback logic)
+  // Use canvas texture (colorful gradient as primary texture)
+  // Video can be added by placing preview.mp4 in /public directory
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
@@ -368,10 +348,13 @@ function onPanelClick(event) {
       y: coreGroup.rotation.y
     };
     
-    // Calculate target rotation (simplified - rotate to face camera)
+    // Calculate target rotation to center the panel in front of camera
     const targetY = Math.atan2(panelWorldPosition.x, panelWorldPosition.z);
-    const targetX = -Math.atan2(panelWorldPosition.y, 
-      Math.sqrt(panelWorldPosition.x ** 2 + panelWorldPosition.z ** 2));
+    // Calculate horizontal distance from center for pitch angle
+    const horizontalDistance = Math.sqrt(
+      panelWorldPosition.x ** 2 + panelWorldPosition.z ** 2
+    );
+    const targetX = -Math.atan2(panelWorldPosition.y, horizontalDistance);
     
     // Animate rotation to center the panel
     gsap.to(coreGroup.rotation, {
