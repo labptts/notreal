@@ -207,7 +207,7 @@ const creators = [
   { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
 ];
 
-// Responsive layout: carousel on mobile, pyramid on desktop
+// Responsive layout: carousel on both mobile and desktop
 const sphereRadius = isMobile ? 2.2 : 2.6;
 const spacingX = isMobile ? 4.2 : 6.8;
 const spacingY = isMobile ? 4.6 : 6.8;
@@ -216,7 +216,7 @@ const spacingY = isMobile ? 4.6 : 6.8;
 // MOBILE CAROUSEL STATE
 // ============================================================
 // Orbital carousel: spheres arranged in a circle, swipe to rotate
-const carouselOrbitRadius = 7; // radius of the circular orbit
+const carouselOrbitRadius = isMobile ? 7 : 10; // radius of the circular orbit
 let carouselAngle = Math.random() * Math.PI * 2; // random initial angle
 let carouselTargetAngle = carouselAngle;
 let carouselCurrentIndex = 0; // which creator is centered
@@ -227,23 +227,16 @@ if (carouselCurrentIndex < 0) carouselCurrentIndex += creators.length;
 carouselTargetAngle = carouselCurrentIndex * carouselAnglePerItem;
 carouselAngle = carouselTargetAngle;
 
-const creatorPositions = isMobile ? [
+const creatorPositions = [
   // Placeholder positions — will be updated by carousel logic
   new THREE.Vector3(0, 0, 0),
   new THREE.Vector3(0, 0, 0),
   new THREE.Vector3(0, 0, 0),
   new THREE.Vector3(0, 0, 0),
   new THREE.Vector3(0, 0, 0),
-] : [
-  new THREE.Vector3(-spacingX, spacingY * 0.45, 0),
-  new THREE.Vector3(0, spacingY * 0.45, 0),
-  new THREE.Vector3(spacingX, spacingY * 0.45, 0),
-  new THREE.Vector3(-spacingX * 0.5, -spacingY * 0.45, 0),
-  new THREE.Vector3(spacingX * 0.5, -spacingY * 0.45, 0),
 ];
 
 function updateCarouselPositions() {
-  if (!isMobile) return;
   creators.forEach((_, i) => {
     const angle = carouselAngle + i * carouselAnglePerItem;
     const x = Math.sin(angle) * carouselOrbitRadius;
@@ -306,7 +299,6 @@ loadingManager.onLoad = () => {
 };
 
 function isCarouselCenter(i) {
-  if (!isMobile) return true;
   const angle = carouselAngle + i * carouselAnglePerItem;
   return Math.abs(Math.sin(angle)) < 0.3;
 }
@@ -450,10 +442,10 @@ creators.forEach((creator, ci) => {
   const sphereGroup = new THREE.Group();
   creatorGroup.add(sphereGroup);
 
-  // Inner sphere — RED emissive glow core (visible when panels lift)
+  // Inner sphere — WHITE emissive glow core (visible when panels lift)
   const innerGeo = new THREE.SphereGeometry(sphereRadius - 0.02, 64, 64);
   const innerMat = new THREE.MeshBasicMaterial({
-    color: 0xff2200,
+    color: 0xffffff,
     transparent: true,
     opacity: 0,
     side: THREE.FrontSide,
@@ -473,12 +465,12 @@ creators.forEach((creator, ci) => {
     const frontMat = new THREE.MeshPhysicalMaterial({
       map: panelImage,
       side: THREE.FrontSide,
-      roughness: 0.05,
-      metalness: 0.02,
+      roughness: isMobile ? 0.02 : 0.05,
+      metalness: isMobile ? 0.05 : 0.02,
       clearcoat: 1.0,
-      clearcoatRoughness: 0.02,
-      envMapIntensity: 0.4,
-      reflectivity: 0.3,
+      clearcoatRoughness: isMobile ? 0.005 : 0.02,
+      envMapIntensity: isMobile ? 0.7 : 0.4,
+      reflectivity: isMobile ? 0.5 : 0.3,
       envMapRotation: new THREE.Euler(0, ci * Math.PI * 0.4, 0),
       transparent: true,
       opacity: 1
@@ -643,6 +635,12 @@ creators.forEach((creator, ci) => {
   glassMat.envMapRotation = new THREE.Euler(0, ci * Math.PI * 0.4, 0);
   const glassMesh = new THREE.Mesh(glassGeo, glassMat);
   glassMesh.userData.isGlassOverlay = true;
+  // On mobile, hide glass overlay for crisp glossy look (no haze)
+  if (isMobile) {
+    glassMat.transmission = 0;
+    glassMat.opacity = 0;
+    glassMesh.visible = false;
+  }
   sphereGroup.add(glassMesh);
   glassMeshes.push(glassMesh);
 
@@ -831,10 +829,9 @@ function updateNameLabels() {
     nameLabels[i].style.top = (by + pixelOffset) + 'px';
     nameLabels[i].style.display = centerWorld.z > 1 ? 'none' : 'block';
 
-    if (isMobile && !isDetailView) {
+    if (!isDetailView) {
       // Fade out non-center spheres' labels
       const angle = carouselAngle + i * carouselAnglePerItem;
-      const normalizedAngle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
       const distFromFront = Math.abs(Math.sin(angle));
       // Only show label for center sphere
       if (distFromFront < 0.3) {
@@ -991,14 +988,10 @@ class InteractionController {
       this.activeSphere = sphereMeshGroups[idx];
       this.isRotatingSphere = true;
       this.velocities[idx] = { x: 0, y: 0 };
-    } else if (isMobile && !isDetailView) {
-      // Mobile: swipe to rotate carousel
+    } else if (!isDetailView) {
+      // Swipe to rotate carousel (both mobile and desktop)
       this.isCarouselSwiping = true;
       this.carouselSwipeVelocity = 0;
-    } else {
-      // Desktop: Start camera pan
-      this.isPanning = true;
-      this.panVelocity.set(0, 0);
     }
   }
 
@@ -1193,7 +1186,7 @@ function onMouseMoveHover(event) {
       hoveredPanel = panel;
       hoveredPanel.userData.isHovered = true;
       gsap.to(panel.scale, { x: 1.06, y: 1.06, z: 1.06, duration: 0.3, ease: 'power2.out' });
-      // Show red inner sphere glow
+      // Show white inner sphere glow
       const ci = panel.userData.creatorIndex;
       gsap.to(innerSpheres[ci].material, { opacity: 0.6, duration: 0.3 });
     }
@@ -1226,7 +1219,7 @@ function onMouseMoveHover(event) {
 
 function unhoverPanel(panel) {
   gsap.to(panel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
-  // Hide red inner sphere glow
+  // Hide white inner sphere glow
   const ci = panel.userData.creatorIndex;
   gsap.to(innerSpheres[ci].material, { opacity: 0, duration: 0.3 });
   panel.userData.isHovered = false;
@@ -1316,8 +1309,8 @@ function openDetailView(panel) {
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
 
-  // Highlight selected panel with red glow
-  highlightPanelRed(panel);
+  // Highlight selected panel with white glow
+  highlightPanel(panel);
 
   gsap.to(camera.position, {
     x: targetPos.x,
@@ -1367,16 +1360,16 @@ function openDetailView(panel) {
   if (instr) instr.style.opacity = '0';
 }
 
-function highlightPanelRed(panel) {
+function highlightPanel(panel) {
   gsap.to(panel.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.3, ease: 'power2.out' });
-  // Show red inner sphere glow
+  // Show white inner sphere glow
   const ci = panel.userData.creatorIndex;
   gsap.to(innerSpheres[ci].material, { opacity: 0.85, duration: 0.3 });
 }
 
-function unhighlightPanelRed(panel) {
+function unhighlightPanel(panel) {
   gsap.to(panel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
-  // Hide red inner sphere glow
+  // Hide white inner sphere glow
   const ci = panel.userData.creatorIndex;
   gsap.to(innerSpheres[ci].material, { opacity: 0, duration: 0.3 });
 }
@@ -1384,12 +1377,12 @@ function unhighlightPanelRed(panel) {
 function updateDetailProject(panel) {
   // Reset previous selected panel
   if (selectedPanel && selectedPanel !== panel) {
-    unhighlightPanelRed(selectedPanel);
+    unhighlightPanel(selectedPanel);
   }
   selectedPanel = panel;
   document.getElementById('detail-project-name').textContent = panel.userData.projectName;
-  // Highlight new panel with red glow
-  highlightPanelRed(panel);
+  // Highlight new panel with white glow
+  highlightPanel(panel);
 }
 
 function returnToOverview() {
@@ -1398,7 +1391,7 @@ function returnToOverview() {
 
   // Reset selected panel highlight
   if (selectedPanel) {
-    unhighlightPanelRed(selectedPanel);
+    unhighlightPanel(selectedPanel);
   }
 
   creatorInfoPanel.style.opacity = '0';
@@ -1416,9 +1409,7 @@ function returnToOverview() {
 
   creatorGroups.forEach((g, i) => {
     g.visible = true;
-    if (!isMobile) {
-      gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
-    }
+    gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
     // Reset all panel scales and materials
     sphereMeshGroups[i].children.forEach(child => {
       // Skip inner glow sphere — reset it to hidden
@@ -1448,11 +1439,7 @@ function returnToOverview() {
         gsap.to(child.material, { opacity: 1, duration: 0.6 });
       }
     });
-    if (!isMobile) {
-      nameLabels[i].style.opacity = '0.85';
-      nameLabels[i].style.filter = 'blur(0px)';
-    }
-    // On mobile, carousel updateNameLabels will handle label visibility
+    // Carousel updateNameLabels will handle label visibility
   });
 
   const instr = document.getElementById('instructions');
@@ -1616,7 +1603,7 @@ function animate() {
   updateCursor();
 
   // Floating / breathing animation — each sphere with unique phase
-  if (isMobile && !isDetailView) {
+  if (!isDetailView) {
     // Smooth carousel angle interpolation
     carouselAngle += (carouselTargetAngle - carouselAngle) * 0.08;
     updateCarouselPositions();
@@ -1626,7 +1613,7 @@ function animate() {
     const phase = i * 1.3;
     const floatY = Math.sin(time * 0.7 + phase) * 0.18;
 
-    if (isMobile && !isDetailView) {
+    if (!isDetailView) {
       // Carousel: position on orbital ring
       group.position.x = creatorPositions[i].x;
       group.position.y = creatorPositions[i].y + floatY;
@@ -1636,7 +1623,9 @@ function animate() {
       const angle = carouselAngle + i * carouselAnglePerItem;
       const cosAngle = Math.cos(angle);
       // cosAngle: 1 = front, 0 = side, -1 = back
-      const scaleFactor = THREE.MathUtils.clamp(0.4 + cosAngle * 0.6, 0.15, 1.0);
+      // Mobile: central sphere is larger (up to 1.35)
+      const maxScale = isMobile ? 1.35 : 1.0;
+      const scaleFactor = THREE.MathUtils.clamp(0.4 + cosAngle * 0.6, 0.15, maxScale);
       const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
       group.scale.setScalar(scaleFactor * breathe);
 
