@@ -1569,7 +1569,7 @@ const filmGrainCA = {
   uniforms: {
     tDiffuse: { value: null },
     time: { value: 0 },
-    grainIntensity: { value: 0.038 },
+    grainIntensity: { value: 0.008 },
     caOffset: { value: 0.0008 }
   },
   vertexShader: `
@@ -1679,9 +1679,48 @@ function fbm(x, y, octaves) {
   return val;
 }
 
+// Off-screen canvas for blob shape (drawn then blurred onto main blob canvas)
+const blobShapeCanvas = document.createElement('canvas');
+const blobShapeCtx = blobShapeCanvas.getContext('2d');
+
+// Noise overlay canvas (pre-generated, refreshed periodically)
+const noiseCanvas = document.createElement('canvas');
+const noiseCtx = noiseCanvas.getContext('2d');
+let noiseImageData = null;
+let noiseFrame = 0;
+
+function generateNoiseTexture(w, h) {
+  noiseCanvas.width = Math.ceil(w / 2);  // half-res for perf
+  noiseCanvas.height = Math.ceil(h / 2);
+  noiseImageData = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
+}
+
+function updateNoise() {
+  if (!noiseImageData) return;
+  const d = noiseImageData.data;
+  const len = d.length;
+  for (let i = 0; i < len; i += 4) {
+    const v = (Math.random() * 50) | 0; // noise intensity 0-50
+    d[i] = v;
+    d[i + 1] = v;
+    d[i + 2] = v;
+    d[i + 3] = 40; // semi-transparent noise
+  }
+  noiseCtx.putImageData(noiseImageData, 0, 0);
+}
+
 function drawMorphBlob(t) {
   const w = blobCanvas.width, h = blobCanvas.height;
-  blobCtx.clearRect(0, 0, w, h);
+
+  // Ensure offscreen canvases match size
+  if (blobShapeCanvas.width !== w || blobShapeCanvas.height !== h) {
+    blobShapeCanvas.width = w;
+    blobShapeCanvas.height = h;
+    generateNoiseTexture(w, h);
+  }
+
+  // --- Draw blob shape on offscreen canvas ---
+  blobShapeCtx.clearRect(0, 0, w, h);
 
   // Center moves slowly
   const cx = w * 0.5 + Math.sin(t * 0.15) * w * 0.06;
@@ -1691,7 +1730,7 @@ function drawMorphBlob(t) {
   const baseR = Math.min(w, h) * 0.42;
   const points = 120;
 
-  blobCtx.beginPath();
+  blobShapeCtx.beginPath();
   for (let i = 0; i <= points; i++) {
     const a = (i / points) * Math.PI * 2;
     // Multiple noise layers for organic morphing
@@ -1700,12 +1739,23 @@ function drawMorphBlob(t) {
     const r = baseR * (0.85 + n1 * 0.35 + n2 * 0.15);
     const px = cx + Math.cos(a) * r;
     const py = cy + Math.sin(a) * r;
-    if (i === 0) blobCtx.moveTo(px, py);
-    else blobCtx.lineTo(px, py);
+    if (i === 0) blobShapeCtx.moveTo(px, py);
+    else blobShapeCtx.lineTo(px, py);
   }
-  blobCtx.closePath();
-  blobCtx.fillStyle = '#000000';
-  blobCtx.fill();
+  blobShapeCtx.closePath();
+  blobShapeCtx.fillStyle = '#000000';
+  blobShapeCtx.fill();
+
+  // --- Composite onto main blob canvas with heavy blur ---
+  blobCtx.clearRect(0, 0, w, h);
+  blobCtx.filter = 'blur(80px)';
+  blobCtx.drawImage(blobShapeCanvas, 0, 0);
+  blobCtx.filter = 'none';
+
+  // --- Noise overlay (update every 3 frames for perf) ---
+  noiseFrame++;
+  if (noiseFrame % 3 === 0) updateNoise();
+  blobCtx.drawImage(noiseCanvas, 0, 0, noiseCanvas.width, noiseCanvas.height, 0, 0, w, h);
 }
 
 // ============================================================
