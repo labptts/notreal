@@ -208,16 +208,16 @@ const creators = [
 ];
 
 // Responsive layout: pyramid on desktop, compact grid on mobile
-const sphereRadius = isMobile ? 2.0 : 2.6;
-const spacingX = isMobile ? 4.8 : 6.8;
-const spacingY = isMobile ? 5.0 : 6.8;
+const sphereRadius = isMobile ? 1.6 : 2.6;
+const spacingX = isMobile ? 4.2 : 6.8;
+const spacingY = isMobile ? 4.6 : 6.8;
 const creatorPositions = isMobile ? [
-  // Mobile: 2-1-2 centered layout (tighter)
-  new THREE.Vector3(-spacingX * 0.5, spacingY * 0.7, 0),
-  new THREE.Vector3(spacingX * 0.5, spacingY * 0.7, 0),
+  // Mobile: 2-1-2 quincunx layout
+  new THREE.Vector3(-spacingX * 0.5, spacingY * 0.8, 0),
+  new THREE.Vector3(spacingX * 0.5, spacingY * 0.8, 0),
   new THREE.Vector3(0, 0, 0),
-  new THREE.Vector3(-spacingX * 0.5, -spacingY * 0.7, 0),
-  new THREE.Vector3(spacingX * 0.5, -spacingY * 0.7, 0),
+  new THREE.Vector3(-spacingX * 0.5, -spacingY * 0.8, 0),
+  new THREE.Vector3(spacingX * 0.5, -spacingY * 0.8, 0),
 ] : [
   new THREE.Vector3(-spacingX, spacingY * 0.45, 0),
   new THREE.Vector3(0, spacingY * 0.45, 0),
@@ -739,7 +739,7 @@ setTimeout(() => {
 
 function updateNameLabels() {
   creatorGroups.forEach((group, i) => {
-    const worldPos = new THREE.Vector3(0, -(sphereRadius + 0.7), 0);
+    const worldPos = new THREE.Vector3(0, -(sphereRadius + (isMobile ? 0.35 : 0.7)), 0);
     group.localToWorld(worldPos);
     worldPos.project(camera);
     const x = (worldPos.x * 0.5 + 0.5) * window.innerWidth;
