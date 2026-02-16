@@ -45,8 +45,8 @@ function setCursorHover(isHover) {
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xffffff);
 
-// Fog for depth haze
-scene.fog = new THREE.FogExp2(0xffffff, 0.012);
+// Fog for depth haze (very subtle)
+scene.fog = new THREE.FogExp2(0xffffff, 0.004);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 const baseCameraZ = 22;
@@ -57,25 +57,35 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.85;
+renderer.toneMappingExposure = 0.95;
 document.querySelector('#app').appendChild(renderer.domElement);
 
 // ============================================================
 // LIGHTING
 // ============================================================
-scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-const keyLight = new THREE.DirectionalLight(0xfff8f0, 0.6);
+const keyLight = new THREE.DirectionalLight(0xfff8f0, 0.7);
 keyLight.position.set(8, 10, 8);
 scene.add(keyLight);
 
-const fillLight = new THREE.DirectionalLight(0xe0e8ff, 0.35);
+const fillLight = new THREE.DirectionalLight(0xe0e8ff, 0.4);
 fillLight.position.set(-10, 3, 5);
 scene.add(fillLight);
 
-const rimLight = new THREE.DirectionalLight(0xffeedd, 0.3);
-rimLight.position.set(-3, -5, -10);
-scene.add(rimLight);
+// Colored accent rim lights for CG-quality separation
+const rimLightWarm = new THREE.DirectionalLight(0xffccaa, 0.25);
+rimLightWarm.position.set(5, -3, -10);
+scene.add(rimLightWarm);
+
+const rimLightCool = new THREE.DirectionalLight(0xaaccff, 0.25);
+rimLightCool.position.set(-5, -3, -10);
+scene.add(rimLightCool);
+
+// Subtle top-down accent
+const topAccent = new THREE.PointLight(0xffeef5, 0.3, 30);
+topAccent.position.set(0, 12, 5);
+scene.add(topAccent);
 
 // ============================================================
 // ENVIRONMENT MAP
@@ -85,29 +95,85 @@ const envScene = new THREE.Scene();
 
 function createStudioEnvTexture() {
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 512;
+  canvas.width = 2048;
+  canvas.height = 1024;
   const ctx = canvas.getContext('2d');
-  const baseGrad = ctx.createLinearGradient(0, 0, 0, 512);
-  baseGrad.addColorStop(0, '#fdf6f0');
-  baseGrad.addColorStop(0.3, '#ffffff');
-  baseGrad.addColorStop(0.5, '#f0f0f5');
-  baseGrad.addColorStop(0.7, '#e8eaf0');
-  baseGrad.addColorStop(1, '#d5d8e0');
+  const w = 2048, h = 1024;
+
+  // Rich gradient sky dome
+  const baseGrad = ctx.createLinearGradient(0, 0, 0, h);
+  baseGrad.addColorStop(0, '#f8f4f0');
+  baseGrad.addColorStop(0.15, '#ffffff');
+  baseGrad.addColorStop(0.35, '#f5f6fa');
+  baseGrad.addColorStop(0.5, '#eaecf2');
+  baseGrad.addColorStop(0.65, '#e0e3eb');
+  baseGrad.addColorStop(0.8, '#d0d4de');
+  baseGrad.addColorStop(1, '#b8bcc8');
   ctx.fillStyle = baseGrad;
-  ctx.fillRect(0, 0, 1024, 512);
-  const keyGrad = ctx.createRadialGradient(750, 120, 0, 750, 120, 250);
-  keyGrad.addColorStop(0, 'rgba(255, 252, 245, 0.4)');
-  keyGrad.addColorStop(0.4, 'rgba(255, 250, 240, 0.15)');
-  keyGrad.addColorStop(1, 'rgba(255, 250, 240, 0)');
-  ctx.fillStyle = keyGrad;
-  ctx.fillRect(0, 0, 1024, 512);
-  const fillG = ctx.createRadialGradient(200, 200, 0, 200, 200, 300);
-  fillG.addColorStop(0, 'rgba(230, 235, 255, 0.25)');
-  fillG.addColorStop(0.5, 'rgba(230, 235, 255, 0.1)');
-  fillG.addColorStop(1, 'rgba(230, 235, 255, 0)');
-  ctx.fillStyle = fillG;
-  ctx.fillRect(0, 0, 1024, 512);
+  ctx.fillRect(0, 0, w, h);
+
+  // Key light softbox — bright, large (upper right)
+  const key1 = ctx.createRadialGradient(1500, 180, 0, 1500, 180, 350);
+  key1.addColorStop(0, 'rgba(255, 253, 248, 0.95)');
+  key1.addColorStop(0.2, 'rgba(255, 250, 240, 0.7)');
+  key1.addColorStop(0.5, 'rgba(255, 248, 235, 0.3)');
+  key1.addColorStop(1, 'rgba(255, 245, 230, 0)');
+  ctx.fillStyle = key1;
+  ctx.fillRect(0, 0, w, h);
+
+  // Secondary softbox (upper left)
+  const key2 = ctx.createRadialGradient(400, 220, 0, 400, 220, 280);
+  key2.addColorStop(0, 'rgba(220, 230, 255, 0.8)');
+  key2.addColorStop(0.3, 'rgba(220, 230, 255, 0.4)');
+  key2.addColorStop(0.6, 'rgba(215, 225, 255, 0.15)');
+  key2.addColorStop(1, 'rgba(210, 220, 255, 0)');
+  ctx.fillStyle = key2;
+  ctx.fillRect(0, 0, w, h);
+
+  // Rim accent (warm, behind — lower area)
+  const rim1 = ctx.createRadialGradient(1800, 600, 0, 1800, 600, 400);
+  rim1.addColorStop(0, 'rgba(255, 220, 180, 0.5)');
+  rim1.addColorStop(0.4, 'rgba(255, 210, 160, 0.2)');
+  rim1.addColorStop(1, 'rgba(255, 200, 150, 0)');
+  ctx.fillStyle = rim1;
+  ctx.fillRect(0, 0, w, h);
+
+  // Cool accent (left side)
+  const cool = ctx.createRadialGradient(100, 500, 0, 100, 500, 350);
+  cool.addColorStop(0, 'rgba(180, 200, 255, 0.4)');
+  cool.addColorStop(0.5, 'rgba(180, 200, 255, 0.15)');
+  cool.addColorStop(1, 'rgba(180, 200, 255, 0)');
+  ctx.fillStyle = cool;
+  ctx.fillRect(0, 0, w, h);
+
+  // Bright specular highlight spots (simulate window reflections)
+  const spots = [
+    { x: 1400, y: 140, r: 80, a: 0.9 },
+    { x: 1550, y: 200, r: 60, a: 0.7 },
+    { x: 600, y: 160, r: 70, a: 0.6 },
+    { x: 1000, y: 100, r: 50, a: 0.5 },
+    { x: 300, y: 300, r: 90, a: 0.4 },
+  ];
+  spots.forEach(s => {
+    const sg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r);
+    sg.addColorStop(0, `rgba(255, 255, 255, ${s.a})`);
+    sg.addColorStop(0.3, `rgba(255, 255, 252, ${s.a * 0.5})`);
+    sg.addColorStop(1, 'rgba(255, 255, 250, 0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, 0, w, h);
+  });
+
+  // Subtle horizontal gradient bands (simulate studio panels)
+  for (let i = 0; i < 6; i++) {
+    const yy = 80 + i * 160;
+    const band = ctx.createLinearGradient(0, yy - 40, 0, yy + 40);
+    band.addColorStop(0, 'rgba(255,255,255,0)');
+    band.addColorStop(0.5, `rgba(255,255,255,${0.08 + Math.random() * 0.06})`);
+    band.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(0, yy - 40, w, 80);
+  }
+
   return canvas;
 }
 const envCanvas = createStudioEnvTexture();
@@ -197,59 +263,7 @@ function createSphericalPanelGeometry(radius, phiStart, phiLength, thetaStart, t
 
 // ============================================================
 // IRIDESCENT + FRESNEL OVERLAY MATERIAL
-// ============================================================
-const iridescentShader = {
-  uniforms: {
-    time: { value: 0 },
-    iriIntensity: { value: 0.05 },
-    fresnelPower: { value: 3.0 },
-    fresnelIntensity: { value: 0.1 },
-  },
-  vertexShader: `
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      vNormal = normalize(normalMatrix * normal);
-      vViewDir = normalize(-mvPos.xyz);
-      gl_Position = projectionMatrix * mvPos;
-    }
-  `,
-  fragmentShader: `
-    uniform float time;
-    uniform float iriIntensity;
-    uniform float fresnelPower;
-    uniform float fresnelIntensity;
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    varying vec2 vUv;
-
-    vec3 iridescence(float angle) {
-      // Thin-film interference approximation
-      float t = angle * 6.2832 + time * 0.3;
-      return vec3(
-        0.5 + 0.5 * cos(t),
-        0.5 + 0.5 * cos(t + 2.094),
-        0.5 + 0.5 * cos(t + 4.189)
-      );
-    }
-
-    void main() {
-      float fresnel = pow(1.0 - max(dot(vNormal, vViewDir), 0.0), fresnelPower);
-
-      // Iridescent color based on view angle
-      float angle = dot(vNormal, vViewDir);
-      vec3 iriColor = iridescence(angle) * iriIntensity * fresnel;
-
-      // Fresnel rim glow (white)
-      vec3 rimGlow = vec3(1.0) * fresnel * fresnelIntensity;
-
-      gl_FragColor = vec4(iriColor + rimGlow, fresnel * 0.6);
-    }
-  `
-};
+// Glass overlay material is created inline during sphere construction
 
 // ============================================================
 // CREATE PROJECT LABEL TEXTURE (for each panel)
@@ -307,7 +321,7 @@ const creatorGroups = [];
 const sphereMeshGroups = [];
 const allPanels = [];
 const innerSpheres = [];
-const iridescentMeshes = []; // for time uniform update
+const glassMeshes = []; // glass overlay meshes
 
 // NO GAP — panels fully adjacent
 const gap = 0.0;
@@ -337,13 +351,14 @@ creators.forEach((creator, ci) => {
   const sphereGroup = new THREE.Group();
   creatorGroup.add(sphereGroup);
 
-  // Inner sphere — no more gaps visible
+  // Inner sphere — subtle dark backing for depth
   const innerGeo = new THREE.SphereGeometry(sphereRadius - 0.02, 64, 64);
   const innerMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
+    color: 0xf0f0f0,
     side: THREE.FrontSide,
-    roughness: 0.9,
-    metalness: 0.0
+    roughness: 0.6,
+    metalness: 0.05,
+    envMapIntensity: 0.3
   });
   const innerSphere = new THREE.Mesh(innerGeo, innerMat);
   sphereGroup.add(innerSphere);
@@ -359,11 +374,13 @@ creators.forEach((creator, ci) => {
     const frontMat = new THREE.MeshPhysicalMaterial({
       map: panelImage,
       side: THREE.FrontSide,
-      roughness: 0.12,
-      metalness: 0.02,
-      clearcoat: 0.7,
-      clearcoatRoughness: 0.05,
-      envMapIntensity: 0.4,
+      roughness: 0.08,
+      metalness: 0.03,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.03,
+      envMapIntensity: 0.8,
+      reflectivity: 0.5,
+      envMapRotation: new THREE.Euler(0, ci * Math.PI * 0.4, 0),
       transparent: true,
       opacity: 1
     });
@@ -504,23 +521,31 @@ creators.forEach((creator, ci) => {
     allPanels.push(cardGroup);
   });
 
-  // Iridescent + Fresnel overlay sphere (full sphere on top)
-  const iriGeo = new THREE.SphereGeometry(sphereRadius + 0.02, 64, 64);
-  const iriMat = new THREE.ShaderMaterial({
-    ...iridescentShader,
-    uniforms: {
-      time: { value: 0 },
-      iriIntensity: { value: 0.05 },
-      fresnelPower: { value: 3.0 },
-      fresnelIntensity: { value: 0.1 },
-    },
+  // Glass refraction overlay sphere
+  const glassGeo = new THREE.SphereGeometry(sphereRadius + 0.025, 64, 64);
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    transmission: 0.96,
+    thickness: 0.5,
+    ior: 1.45,
+    roughness: 0.02,
+    metalness: 0.0,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.01,
+    envMapIntensity: 0.7,
+    reflectivity: 0.9,
     transparent: true,
-    depthWrite: false,
+    opacity: 1.0,
     side: THREE.FrontSide,
+    depthWrite: false,
+    attenuationDistance: 30.0,
   });
-  const iriMesh = new THREE.Mesh(iriGeo, iriMat);
-  sphereGroup.add(iriMesh);
-  iridescentMeshes.push(iriMat);
+  // Rotate env reflections per sphere for unique highlights
+  glassMat.envMapRotation = new THREE.Euler(0, ci * Math.PI * 0.4, 0);
+  const glassMesh = new THREE.Mesh(glassGeo, glassMat);
+  glassMesh.userData.isGlassOverlay = true;
+  sphereGroup.add(glassMesh);
+  glassMeshes.push(glassMesh);
 
   sphereGroup.rotation.y = Math.random() * Math.PI * 2;
   sphereGroup.rotation.x = (Math.random() - 0.5) * 0.3;
@@ -528,6 +553,131 @@ creators.forEach((creator, ci) => {
   creatorGroups.push(creatorGroup);
   sphereMeshGroups.push(sphereGroup);
 });
+
+// ============================================================
+// GROUND PLANE + CONTACT SHADOWS + CAUSTICS
+// ============================================================
+
+// ---- DARK BOKEH BLOB (amorphous, defocused, parallax) ----
+function createBokehBlobTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, 512, 512);
+
+  // Main amorphous shape — multiple offset radial gradients blended
+  const blobs = [
+    { x: 240, y: 260, rx: 200, ry: 180, a: 0.07 },
+    { x: 280, y: 230, rx: 170, ry: 210, a: 0.06 },
+    { x: 220, y: 280, rx: 160, ry: 150, a: 0.05 },
+    { x: 300, y: 250, rx: 130, ry: 170, a: 0.04 },
+    { x: 256, y: 256, rx: 220, ry: 220, a: 0.03 },
+  ];
+  blobs.forEach(b => {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.scale(1, b.ry / b.rx);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, b.rx);
+    g.addColorStop(0, `rgba(15, 15, 20, ${b.a})`);
+    g.addColorStop(0.3, `rgba(20, 18, 25, ${b.a * 0.8})`);
+    g.addColorStop(0.6, `rgba(25, 22, 30, ${b.a * 0.4})`);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(-b.rx, -b.rx, b.rx * 2, b.rx * 2);
+    ctx.restore();
+  });
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const bokehTex = createBokehBlobTexture();
+const bokehGeo = new THREE.PlaneGeometry(80, 80);
+const bokehMat = new THREE.MeshBasicMaterial({
+  map: bokehTex,
+  transparent: true,
+  depthWrite: false,
+  opacity: 0.3,
+});
+const bokehMesh = new THREE.Mesh(bokehGeo, bokehMat);
+bokehMesh.position.set(3, -1, -20);
+bokehMesh.renderOrder = -10;
+scene.add(bokehMesh);
+
+// Soft blob shadow under each sphere
+function createShadowTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, 'rgba(0, 0, 0, 0.10)');
+  g.addColorStop(0.4, 'rgba(0, 0, 0, 0.06)');
+  g.addColorStop(0.7, 'rgba(0, 0, 0, 0.02)');
+  g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+const shadowTex = createShadowTexture();
+const shadowPlanes = [];
+creatorGroups.forEach((group, i) => {
+  const shadowGeo = new THREE.PlaneGeometry(sphereRadius * 3, sphereRadius * 2);
+  const shadowMat = new THREE.MeshBasicMaterial({
+    map: shadowTex,
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.7,
+  });
+  const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+  shadowMesh.position.set(
+    group.position.x,
+    group.position.y - sphereRadius - 0.8,
+    group.position.z - 0.1
+  );
+  shadowMesh.renderOrder = -1;
+  scene.add(shadowMesh);
+  shadowPlanes.push(shadowMesh);
+});
+
+// Caustics texture (animated procedural)
+function createCausticsTexture(time) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, 512, 512);
+
+  // Draw animated caustic-like patterns
+  for (let i = 0; i < 40; i++) {
+    const x = (Math.sin(i * 1.7 + time * 0.3) * 0.5 + 0.5) * 512;
+    const y = (Math.cos(i * 2.3 + time * 0.2) * 0.5 + 0.5) * 512;
+    const r = 15 + Math.sin(i * 3.1 + time * 0.5) * 10;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(255, 255, 255, ${0.04 + Math.sin(i + time) * 0.02})`);
+    g.addColorStop(0.5, `rgba(240, 245, 255, ${0.02})`);
+    g.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 512, 512);
+  }
+  return c;
+}
+
+const causticsGeo = new THREE.PlaneGeometry(40, 20);
+const causticsCanvas = createCausticsTexture(0);
+const causticsTexture = new THREE.CanvasTexture(causticsCanvas);
+const causticsMat = new THREE.MeshBasicMaterial({
+  map: causticsTexture,
+  transparent: true,
+  depthWrite: false,
+  opacity: 0.4,
+  blending: THREE.AdditiveBlending,
+});
+const causticsMesh = new THREE.Mesh(causticsGeo, causticsMat);
+causticsMesh.position.set(0, -spacingY * 0.45 - sphereRadius - 1.2, -0.15);
+causticsMesh.renderOrder = -2;
+scene.add(causticsMesh);
 
 // ============================================================
 // HTML NAME LABELS — with blur-reveal animation
@@ -781,8 +931,8 @@ function findFrontFacingPanel(intersects) {
   for (const intersect of intersects) {
     if (innerSpheres.includes(intersect.object)) continue;
     if (intersect.object.material && intersect.object.material.side === THREE.BackSide) continue;
-    // Skip iridescent overlay
-    if (intersect.object.material && intersect.object.material.isShaderMaterial) continue;
+    // Skip glass overlay
+    if (intersect.object.userData && intersect.object.userData.isGlassOverlay) continue;
     if (isFrontFacing(intersect)) {
       let panel = intersect.object;
       while (panel.parent && !allPanels.includes(panel)) {
@@ -908,7 +1058,7 @@ projectInfoPanel.id = 'project-info-panel';
 projectInfoPanel.style.cssText = `
   position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
   width: 280px; padding: 40px;
-  background: rgba(255,255,255,0.95); backdrop-filter: blur(20px);
+  background: rgba(255,255,255,0.92); backdrop-filter: blur(20px);
   border-radius: 16px; z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
@@ -1137,9 +1287,9 @@ composer.addPass(new RenderPass(scene, camera));
 // Bloom
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.0,   // strength (disabled)
-  0.4,   // radius
-  0.95   // threshold
+  0.12,  // strength — subtle glow on highlights
+  0.6,   // radius
+  0.85   // threshold
 );
 composer.addPass(bloomPass);
 
@@ -1147,8 +1297,8 @@ const filmGrainCA = {
   uniforms: {
     tDiffuse: { value: null },
     time: { value: 0 },
-    grainIntensity: { value: 0.018 },
-    caOffset: { value: 0.0003 }
+    grainIntensity: { value: 0.038 },
+    caOffset: { value: 0.0008 }
   },
   vertexShader: `
     varying vec2 vUv;
@@ -1184,6 +1334,39 @@ const filmGrainCA = {
 const filmGrainPass = new ShaderPass(filmGrainCA);
 composer.addPass(filmGrainPass);
 
+// Vignette pass
+const vignetteShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    intensity: { value: 0.35 },
+    smoothness: { value: 0.4 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float intensity;
+    uniform float smoothness;
+    varying vec2 vUv;
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      vec2 uv = vUv;
+      uv *= 1.0 - uv.yx;
+      float vig = uv.x * uv.y * 15.0;
+      vig = pow(vig, smoothness);
+      color.rgb = mix(color.rgb * (1.0 - intensity), color.rgb, vig);
+      gl_FragColor = color;
+    }
+  `
+};
+const vignettePass = new ShaderPass(vignetteShader);
+composer.addPass(vignettePass);
+
 // ============================================================
 // ANIMATION LOOP
 // ============================================================
@@ -1196,25 +1379,46 @@ function animate() {
   controller.update();
   updateCursor();
 
-  // Floating / breathing animation — each sphere bobbles with unique phase
+  // Floating / breathing animation — each sphere with unique phase
   creatorGroups.forEach((group, i) => {
     const phase = i * 1.3;
-    const floatY = Math.sin(time * 0.8 + phase) * 0.15;
+    const floatY = Math.sin(time * 0.7 + phase) * 0.18;
+    const floatX = Math.cos(time * 0.5 + phase * 1.7) * 0.06;
     group.position.y = group.userData.baseY + floatY;
+    group.position.x = creatorPositions[i].x + floatX;
+
+    // Subtle scale breathing
+    const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
+    group.scale.setScalar(breathe);
 
     // Apply magnetic hover tilt (smooth lerp)
     const tilt = hoverTilts[i];
     group.rotation.x += (tilt.x - group.rotation.x) * 0.08;
     group.rotation.y += (tilt.y - group.rotation.y) * 0.08;
+
+    // Update shadow position to follow sphere
+    if (shadowPlanes[i]) {
+      shadowPlanes[i].position.x = group.position.x;
+      shadowPlanes[i].position.y = group.position.y - sphereRadius - 0.8;
+      shadowPlanes[i].material.opacity = 0.5 + floatY * 0.3;
+    }
   });
 
-  // Update iridescent shader time
-  iridescentMeshes.forEach(mat => { mat.uniforms.time.value = time; });
+  // Update caustics
+  if (Math.floor(time * 8) % 2 === 0) {
+    const newCausticsCanvas = createCausticsTexture(time);
+    causticsTexture.image = newCausticsCanvas;
+    causticsTexture.needsUpdate = true;
+  }
+
+  // Bokeh blob parallax — moves opposite to camera, slow & heavy
+  bokehMesh.position.x = 3 - mouseX * 1.8;
+  bokehMesh.position.y = -1 + mouseY * 1.2;
 
   // Camera
   if (!isDetailView) {
-    camera.position.x = baseCameraPos.x + cameraPanOffset.x + mouseX * 0.4;
-    camera.position.y = baseCameraPos.y + cameraPanOffset.y - mouseY * 0.3;
+    camera.position.x = baseCameraPos.x + cameraPanOffset.x + mouseX * 0.7;
+    camera.position.y = baseCameraPos.y + cameraPanOffset.y - mouseY * 0.5;
     camera.position.z += (baseCameraPos.z - camera.position.z) * 0.08;
     camera.lookAt(cameraPanOffset.x, cameraPanOffset.y, 0);
   } else {
