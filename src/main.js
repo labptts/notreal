@@ -1738,11 +1738,18 @@ function drawMorphBlob(t) {
   blobShapeCtx.fillStyle = '#000000';
   blobShapeCtx.fill();
 
-  // --- Composite onto main blob canvas with heavy blur ---
+  // --- Composite onto main blob canvas with feathered edges ---
   blobCtx.clearRect(0, 0, w, h);
-  blobCtx.filter = 'blur(60px)';
+
+  // Use shadowBlur for cross-browser soft edges (CSS filter blur not supported on all mobile)
+  blobCtx.save();
+  blobCtx.shadowColor = '#000000';
+  blobCtx.shadowBlur = 80;
+  blobCtx.shadowOffsetX = 0;
+  blobCtx.shadowOffsetY = 0;
+  // Draw blob shape — both the shape itself and its shadow (feathered edge) render
   blobCtx.drawImage(blobShapeCanvas, 0, 0);
-  blobCtx.filter = 'none';
+  blobCtx.restore();
 
   // --- Noise overlay (update every 3 frames for perf) ---
   noiseFrame++;
