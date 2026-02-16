@@ -55,8 +55,8 @@ function setCursorHover(isHover) {
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xffffff);
 
-// Fog for depth haze (very subtle)
-scene.fog = new THREE.FogExp2(0xffffff, 0.004);
+// Fog disabled for sharper visuals
+// scene.fog = new THREE.FogExp2(0xffffff, 0.004);
 
 const camera = new THREE.PerspectiveCamera(isMobile ? 55 : 45, window.innerWidth / window.innerHeight, 0.1, 1000);
 const baseCameraZ = isMobile ? 16 : 22;
@@ -67,7 +67,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.95;
+renderer.toneMappingExposure = 1.2;
 document.querySelector('#app').appendChild(renderer.domElement);
 
 // ============================================================
@@ -207,17 +207,33 @@ const creators = [
   { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
 ];
 
-// Responsive layout: pyramid on desktop, compact grid on mobile
-const sphereRadius = isMobile ? 1.6 : 2.6;
+// Responsive layout: carousel on mobile, pyramid on desktop
+const sphereRadius = isMobile ? 2.2 : 2.6;
 const spacingX = isMobile ? 4.2 : 6.8;
 const spacingY = isMobile ? 4.6 : 6.8;
+
+// ============================================================
+// MOBILE CAROUSEL STATE
+// ============================================================
+// Orbital carousel: spheres arranged in a circle, swipe to rotate
+const carouselOrbitRadius = 7; // radius of the circular orbit
+let carouselAngle = Math.random() * Math.PI * 2; // random initial angle
+let carouselTargetAngle = carouselAngle;
+let carouselCurrentIndex = 0; // which creator is centered
+const carouselAnglePerItem = (Math.PI * 2) / creators.length;
+// Compute initial center index from random angle
+carouselCurrentIndex = Math.round(carouselAngle / carouselAnglePerItem) % creators.length;
+if (carouselCurrentIndex < 0) carouselCurrentIndex += creators.length;
+carouselTargetAngle = carouselCurrentIndex * carouselAnglePerItem;
+carouselAngle = carouselTargetAngle;
+
 const creatorPositions = isMobile ? [
-  // Mobile: 2-1-2 quincunx layout
-  new THREE.Vector3(-spacingX * 0.5, spacingY * 0.8, 0),
-  new THREE.Vector3(spacingX * 0.5, spacingY * 0.8, 0),
+  // Placeholder positions — will be updated by carousel logic
   new THREE.Vector3(0, 0, 0),
-  new THREE.Vector3(-spacingX * 0.5, -spacingY * 0.8, 0),
-  new THREE.Vector3(spacingX * 0.5, -spacingY * 0.8, 0),
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0, 0, 0),
 ] : [
   new THREE.Vector3(-spacingX, spacingY * 0.45, 0),
   new THREE.Vector3(0, spacingY * 0.45, 0),
@@ -226,10 +242,76 @@ const creatorPositions = isMobile ? [
   new THREE.Vector3(spacingX * 0.5, -spacingY * 0.45, 0),
 ];
 
+function updateCarouselPositions() {
+  if (!isMobile) return;
+  creators.forEach((_, i) => {
+    const angle = carouselAngle + i * carouselAnglePerItem;
+    const x = Math.sin(angle) * carouselOrbitRadius;
+    const z = Math.cos(angle) * carouselOrbitRadius - carouselOrbitRadius; // offset so center sphere is at z=0
+    creatorPositions[i].set(x, 0, z);
+    if (creatorGroups[i]) {
+      creatorGroups[i].userData.baseY = 0;
+    }
+  });
+}
+
 // ============================================================
-// TEXTURE LOADING
+// TEXTURE LOADING with progress tracking
 // ============================================================
-const textureLoader = new THREE.TextureLoader();
+const loadingManager = new THREE.LoadingManager();
+let loadProgress = 0;
+let loadingComplete = false;
+
+function updateLoadingUI(progress) {
+  const percent = Math.round(progress * 100);
+  const percentEl = document.getElementById('loading-percent');
+  const circleEl = document.getElementById('loading-circle');
+  if (percentEl) percentEl.textContent = percent;
+  if (circleEl) {
+    const circumference = 2 * Math.PI * 54; // r=54
+    circleEl.style.strokeDashoffset = circumference * (1 - progress);
+  }
+}
+
+loadingManager.onProgress = (url, loaded, total) => {
+  loadProgress = loaded / total;
+  updateLoadingUI(loadProgress);
+};
+
+loadingManager.onLoad = () => {
+  loadProgress = 1;
+  updateLoadingUI(1);
+  // Small delay after 100% for visual satisfaction
+  setTimeout(() => {
+    loadingComplete = true;
+    const loading = document.getElementById('loading');
+    if (loading) {
+      loading.style.transition = 'opacity 0.6s ease';
+      loading.style.opacity = '0';
+      setTimeout(() => loading.remove(), 600);
+    }
+    // Show instructions
+    const instr = document.getElementById('instructions');
+    if (instr) instr.style.opacity = '0.8';
+    // Reveal name labels
+    nameLabels.forEach((el, i) => {
+      setTimeout(() => {
+        if (!isMobile || isCarouselCenter(i)) {
+          el.style.opacity = '0.85';
+        }
+        el.style.filter = 'blur(0px)';
+      }, 300 + i * 120);
+    });
+  }, 400);
+};
+
+function isCarouselCenter(i) {
+  if (!isMobile) return true;
+  const angle = carouselAngle + i * carouselAnglePerItem;
+  return Math.abs(Math.sin(angle)) < 0.3;
+}
+
+const textureLoader = new THREE.TextureLoader(loadingManager);
 const panelImage = textureLoader.load('/Mangiant.png');
 panelImage.colorSpace = THREE.SRGBColorSpace;
 panelImage.minFilter = THREE.LinearMipmapLinearFilter;
@@ -368,16 +450,16 @@ creators.forEach((creator, ci) => {
   const sphereGroup = new THREE.Group();
   creatorGroup.add(sphereGroup);
 
-  // Inner sphere — subtle dark backing for depth
+  // Inner sphere — RED emissive glow core (visible when panels lift)
   const innerGeo = new THREE.SphereGeometry(sphereRadius - 0.02, 64, 64);
-  const innerMat = new THREE.MeshPhysicalMaterial({
-    color: 0xf0f0f0,
+  const innerMat = new THREE.MeshBasicMaterial({
+    color: 0xff2200,
+    transparent: true,
+    opacity: 0,
     side: THREE.FrontSide,
-    roughness: 0.6,
-    metalness: 0.05,
-    envMapIntensity: 0.3
   });
   const innerSphere = new THREE.Mesh(innerGeo, innerMat);
+  innerSphere.userData.isGlowCore = true;
   sphereGroup.add(innerSphere);
   innerSpheres.push(innerSphere);
 
@@ -391,12 +473,12 @@ creators.forEach((creator, ci) => {
     const frontMat = new THREE.MeshPhysicalMaterial({
       map: panelImage,
       side: THREE.FrontSide,
-      roughness: 0.08,
-      metalness: 0.03,
+      roughness: 0.05,
+      metalness: 0.02,
       clearcoat: 1.0,
-      clearcoatRoughness: 0.03,
-      envMapIntensity: 0.8,
-      reflectivity: 0.5,
+      clearcoatRoughness: 0.02,
+      envMapIntensity: 0.4,
+      reflectivity: 0.3,
       envMapRotation: new THREE.Euler(0, ci * Math.PI * 0.4, 0),
       transparent: true,
       opacity: 1
@@ -531,7 +613,7 @@ creators.forEach((creator, ci) => {
       projectIndex: pi,
       projectName: projName,
       creatorName: creator.name,
-      isHovered: false
+      isHovered: false,
     };
 
     sphereGroup.add(cardGroup);
@@ -542,20 +624,20 @@ creators.forEach((creator, ci) => {
   const glassGeo = new THREE.SphereGeometry(sphereRadius + 0.025, 64, 64);
   const glassMat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
-    transmission: 0.96,
-    thickness: 0.5,
-    ior: 1.45,
-    roughness: 0.02,
+    transmission: 0.98,
+    thickness: 0.2,
+    ior: 1.3,
+    roughness: 0.01,
     metalness: 0.0,
     clearcoat: 1.0,
     clearcoatRoughness: 0.01,
-    envMapIntensity: 0.7,
-    reflectivity: 0.9,
+    envMapIntensity: 0.3,
+    reflectivity: 0.4,
     transparent: true,
     opacity: 1.0,
     side: THREE.FrontSide,
     depthWrite: false,
-    attenuationDistance: 30.0,
+    attenuationDistance: 50.0,
   });
   // Rotate env reflections per sphere for unique highlights
   glassMat.envMapRotation = new THREE.Euler(0, ci * Math.PI * 0.4, 0);
@@ -727,26 +809,42 @@ const nameLabels = creators.map((creator, i) => {
   return el;
 });
 
-// Blur-reveal on load
-setTimeout(() => {
-  nameLabels.forEach((el, i) => {
-    setTimeout(() => {
-      el.style.opacity = '0.85';
-      el.style.filter = 'blur(0px)';
-    }, 300 + i * 120);
-  });
-}, 600);
+// Blur-reveal on load — handled by loadingManager.onLoad
 
 function updateNameLabels() {
   creatorGroups.forEach((group, i) => {
-    const worldPos = new THREE.Vector3(0, -(sphereRadius + (isMobile ? 0.35 : 0.7)), 0);
-    group.localToWorld(worldPos);
-    worldPos.project(camera);
-    const x = (worldPos.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-worldPos.y * 0.5 + 0.5) * window.innerHeight;
-    nameLabels[i].style.left = x + 'px';
-    nameLabels[i].style.top = y + 'px';
-    nameLabels[i].style.display = worldPos.z > 1 ? 'none' : 'block';
+    // Project center of sphere to screen
+    const centerWorld = new THREE.Vector3(0, 0, 0);
+    group.localToWorld(centerWorld);
+    centerWorld.project(camera);
+    const cx = (centerWorld.x * 0.5 + 0.5) * window.innerWidth;
+
+    // Project bottom of sphere to screen
+    const bottomWorld = new THREE.Vector3(0, -sphereRadius, 0);
+    group.localToWorld(bottomWorld);
+    bottomWorld.project(camera);
+    const by = (-bottomWorld.y * 0.5 + 0.5) * window.innerHeight;
+
+    // Fixed pixel offset below the sphere bottom
+    const pixelOffset = isMobile ? 12 : 18;
+    nameLabels[i].style.left = cx + 'px';
+    nameLabels[i].style.top = (by + pixelOffset) + 'px';
+    nameLabels[i].style.display = centerWorld.z > 1 ? 'none' : 'block';
+
+    if (isMobile && !isDetailView) {
+      // Fade out non-center spheres' labels
+      const angle = carouselAngle + i * carouselAnglePerItem;
+      const normalizedAngle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const distFromFront = Math.abs(Math.sin(angle));
+      // Only show label for center sphere
+      if (distFromFront < 0.3) {
+        nameLabels[i].style.opacity = '0.85';
+        nameLabels[i].style.filter = 'blur(0px)';
+      } else {
+        nameLabels[i].style.opacity = '0';
+        nameLabels[i].style.filter = 'blur(4px)';
+      }
+    }
   });
 }
 
@@ -791,9 +889,12 @@ class InteractionController {
     this.isRotatingSphere = false;
     this.velocities = creators.map(() => ({ x: 0, y: 0 }));
     this.dampingFactor = 0.92;
-    // Camera pan
+    // Camera pan (desktop) / Carousel swipe (mobile)
     this.isPanning = false;
     this.panVelocity = new THREE.Vector2(0, 0);
+    // Carousel swipe
+    this.isCarouselSwiping = false;
+    this.carouselSwipeVelocity = 0;
     // Common
     this.previousMouse = { x: 0, y: 0 };
     this.startMouse = { x: 0, y: 0 };
@@ -890,8 +991,12 @@ class InteractionController {
       this.activeSphere = sphereMeshGroups[idx];
       this.isRotatingSphere = true;
       this.velocities[idx] = { x: 0, y: 0 };
+    } else if (isMobile && !isDetailView) {
+      // Mobile: swipe to rotate carousel
+      this.isCarouselSwiping = true;
+      this.carouselSwipeVelocity = 0;
     } else {
-      // Start camera pan
+      // Desktop: Start camera pan
       this.isPanning = true;
       this.panVelocity.set(0, 0);
     }
@@ -913,6 +1018,12 @@ class InteractionController {
       const idx = this.activeSphereIndex;
       this.velocities[idx].x = dy * speed;
       this.velocities[idx].y = dx * speed;
+    } else if (this.isCarouselSwiping) {
+      this.wasPanning = true;
+      const swipeSpeed = 0.008;
+      carouselAngle += dx * swipeSpeed;
+      carouselTargetAngle = carouselAngle;
+      this.carouselSwipeVelocity = dx * swipeSpeed;
     } else if (this.isPanning) {
       this.wasPanning = true;
       const panSpeed = 0.012;
@@ -925,6 +1036,14 @@ class InteractionController {
   }
 
   onUp() {
+    // Snap carousel to nearest sphere
+    if (this.isCarouselSwiping) {
+      // Apply inertia then snap
+      const inertiaAngle = carouselAngle + this.carouselSwipeVelocity * 8;
+      const nearestIndex = Math.round(inertiaAngle / carouselAnglePerItem);
+      carouselTargetAngle = nearestIndex * carouselAnglePerItem;
+      carouselCurrentIndex = ((nearestIndex % creators.length) + creators.length) % creators.length;
+    }
     // Tap detection for touch devices — emulate click if no drag
     if (isMobile && !this.hasDragged && this.startMouse.x !== 0) {
       this._handleTap(this.startMouse);
@@ -932,6 +1051,7 @@ class InteractionController {
     this.isRotatingSphere = false;
     this.activeSphere = null;
     this.isPanning = false;
+    this.isCarouselSwiping = false;
   }
 
   _handleTap(coords) {
@@ -1017,6 +1137,8 @@ function findFrontFacingPanel(intersects) {
     if (intersect.object.material && intersect.object.material.side === THREE.BackSide) continue;
     // Skip glass overlay
     if (intersect.object.userData && intersect.object.userData.isGlassOverlay) continue;
+    // Skip outline meshes
+    if (intersect.object.userData && intersect.object.userData.isOutline) continue;
     if (isFrontFacing(intersect)) {
       let panel = intersect.object;
       while (panel.parent && !allPanels.includes(panel)) {
@@ -1071,12 +1193,9 @@ function onMouseMoveHover(event) {
       hoveredPanel = panel;
       hoveredPanel.userData.isHovered = true;
       gsap.to(panel.scale, { x: 1.06, y: 1.06, z: 1.06, duration: 0.3, ease: 'power2.out' });
-      panel.children.forEach(child => {
-        if (child.material && child.material.emissive) {
-          child.material.emissive.set(0xffffff);
-          gsap.to(child.material, { emissiveIntensity: 0.1, duration: 0.3 });
-        }
-      });
+      // Show red inner sphere glow
+      const ci = panel.userData.creatorIndex;
+      gsap.to(innerSpheres[ci].material, { opacity: 0.6, duration: 0.3 });
     }
 
     // Magnetic tilt: tilt the entire creator sphere towards cursor
@@ -1107,11 +1226,9 @@ function onMouseMoveHover(event) {
 
 function unhoverPanel(panel) {
   gsap.to(panel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
-  panel.children.forEach(child => {
-    if (child.material && child.material.emissive) {
-      gsap.to(child.material, { emissiveIntensity: 0, duration: 0.3 });
-    }
-  });
+  // Hide red inner sphere glow
+  const ci = panel.userData.creatorIndex;
+  gsap.to(innerSpheres[ci].material, { opacity: 0, duration: 0.3 });
   panel.userData.isHovered = false;
 }
 
@@ -1199,14 +1316,8 @@ function openDetailView(panel) {
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
 
-  // Highlight selected panel
-  gsap.to(panel.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.3, ease: 'power2.out' });
-  panel.children.forEach(child => {
-    if (child.material && child.material.emissive) {
-      child.material.emissive.set(0xffffff);
-      gsap.to(child.material, { emissiveIntensity: 0.12, duration: 0.3 });
-    }
-  });
+  // Highlight selected panel with red glow
+  highlightPanelRed(panel);
 
   gsap.to(camera.position, {
     x: targetPos.x,
@@ -1256,26 +1367,29 @@ function openDetailView(panel) {
   if (instr) instr.style.opacity = '0';
 }
 
+function highlightPanelRed(panel) {
+  gsap.to(panel.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.3, ease: 'power2.out' });
+  // Show red inner sphere glow
+  const ci = panel.userData.creatorIndex;
+  gsap.to(innerSpheres[ci].material, { opacity: 0.85, duration: 0.3 });
+}
+
+function unhighlightPanelRed(panel) {
+  gsap.to(panel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
+  // Hide red inner sphere glow
+  const ci = panel.userData.creatorIndex;
+  gsap.to(innerSpheres[ci].material, { opacity: 0, duration: 0.3 });
+}
+
 function updateDetailProject(panel) {
   // Reset previous selected panel
   if (selectedPanel && selectedPanel !== panel) {
-    gsap.to(selectedPanel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
-    selectedPanel.children.forEach(child => {
-      if (child.material && child.material.emissive) {
-        gsap.to(child.material, { emissiveIntensity: 0, duration: 0.3 });
-      }
-    });
+    unhighlightPanelRed(selectedPanel);
   }
   selectedPanel = panel;
   document.getElementById('detail-project-name').textContent = panel.userData.projectName;
-  // Highlight new panel
-  gsap.to(panel.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.3, ease: 'power2.out' });
-  panel.children.forEach(child => {
-    if (child.material && child.material.emissive) {
-      child.material.emissive.set(0xffffff);
-      gsap.to(child.material, { emissiveIntensity: 0.12, duration: 0.3 });
-    }
-  });
+  // Highlight new panel with red glow
+  highlightPanelRed(panel);
 }
 
 function returnToOverview() {
@@ -1284,12 +1398,7 @@ function returnToOverview() {
 
   // Reset selected panel highlight
   if (selectedPanel) {
-    gsap.to(selectedPanel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
-    selectedPanel.children.forEach(child => {
-      if (child.material && child.material.emissive) {
-        gsap.to(child.material, { emissiveIntensity: 0, duration: 0.3 });
-      }
-    });
+    unhighlightPanelRed(selectedPanel);
   }
 
   creatorInfoPanel.style.opacity = '0';
@@ -1307,17 +1416,43 @@ function returnToOverview() {
 
   creatorGroups.forEach((g, i) => {
     g.visible = true;
-    gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
+    if (!isMobile) {
+      gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
+    }
+    // Reset all panel scales and materials
     sphereMeshGroups[i].children.forEach(child => {
+      // Skip inner glow sphere — reset it to hidden
+      if (child.userData && child.userData.isGlowCore) {
+        gsap.to(child.material, { opacity: 0, duration: 0.3 });
+        return;
+      }
+      // Skip glass overlay
+      if (child.userData && child.userData.isGlassOverlay) {
+        gsap.to(child.material, { opacity: 1, duration: 0.6 });
+        return;
+      }
+      // Reset panels
+      if (allPanels.includes(child)) {
+        gsap.to(child.scale, { x: 1, y: 1, z: 1, duration: 0.3 });
+      }
       if (child.children) {
         child.children.forEach(m => {
-          if (m.material) gsap.to(m.material, { opacity: 1, duration: 0.6 });
+          if (m.material) {
+            m.material.transparent = true;
+            gsap.to(m.material, { opacity: 1, duration: 0.6 });
+          }
         });
       }
-      if (child.material) gsap.to(child.material, { opacity: 1, duration: 0.6 });
+      if (child.material) {
+        child.material.transparent = true;
+        gsap.to(child.material, { opacity: 1, duration: 0.6 });
+      }
     });
-    nameLabels[i].style.opacity = '0.85';
-    nameLabels[i].style.filter = 'blur(0px)';
+    if (!isMobile) {
+      nameLabels[i].style.opacity = '0.85';
+      nameLabels[i].style.filter = 'blur(0px)';
+    }
+    // On mobile, carousel updateNameLabels will handle label visibility
   });
 
   const instr = document.getElementById('instructions');
@@ -1376,16 +1511,8 @@ function onWindowResize() {
 window.addEventListener('resize', onWindowResize);
 
 // ============================================================
-// LOADING
+// LOADING — handled by loadingManager.onLoad
 // ============================================================
-setTimeout(() => {
-  const loading = document.getElementById('loading');
-  if (loading) {
-    loading.style.transition = 'opacity 0.5s';
-    loading.style.opacity = '0';
-    setTimeout(() => loading.remove(), 500);
-  }
-}, 500);
 
 // ============================================================
 // POST-PROCESSING: Film Grain/CA + Bloom
@@ -1396,8 +1523,8 @@ composer.addPass(new RenderPass(scene, camera));
 // Bloom
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.12,  // strength — subtle glow on highlights
-  0.6,   // radius
+  0.15,  // strength — subtle
+  0.5,   // radius
   0.85   // threshold
 );
 composer.addPass(bloomPass);
@@ -1489,16 +1616,41 @@ function animate() {
   updateCursor();
 
   // Floating / breathing animation — each sphere with unique phase
+  if (isMobile && !isDetailView) {
+    // Smooth carousel angle interpolation
+    carouselAngle += (carouselTargetAngle - carouselAngle) * 0.08;
+    updateCarouselPositions();
+  }
+
   creatorGroups.forEach((group, i) => {
     const phase = i * 1.3;
     const floatY = Math.sin(time * 0.7 + phase) * 0.18;
-    const floatX = Math.cos(time * 0.5 + phase * 1.7) * 0.06;
-    group.position.y = group.userData.baseY + floatY;
-    group.position.x = creatorPositions[i].x + floatX;
 
-    // Subtle scale breathing
-    const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
-    group.scale.setScalar(breathe);
+    if (isMobile && !isDetailView) {
+      // Carousel: position on orbital ring
+      group.position.x = creatorPositions[i].x;
+      group.position.y = creatorPositions[i].y + floatY;
+      group.position.z = creatorPositions[i].z;
+
+      // Scale based on depth (front = big, sides = smaller, back = tiny)
+      const angle = carouselAngle + i * carouselAnglePerItem;
+      const cosAngle = Math.cos(angle);
+      // cosAngle: 1 = front, 0 = side, -1 = back
+      const scaleFactor = THREE.MathUtils.clamp(0.4 + cosAngle * 0.6, 0.15, 1.0);
+      const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
+      group.scale.setScalar(scaleFactor * breathe);
+
+      // Hide spheres that are behind
+      group.visible = cosAngle > -0.3;
+    } else {
+      const floatX = Math.cos(time * 0.5 + phase * 1.7) * 0.06;
+      group.position.y = group.userData.baseY + floatY;
+      group.position.x = creatorPositions[i].x + floatX;
+
+      // Subtle scale breathing
+      const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
+      group.scale.setScalar(breathe);
+    }
 
     // Apply magnetic hover tilt (smooth lerp)
     const tilt = hoverTilts[i];

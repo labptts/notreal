@@ -8,10 +8,21 @@
   </head>
   <body>
     <div id="app"></div>
-    <div id="loading" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a2e; font-size: 24px; z-index: 1000; font-weight: 300; letter-spacing: 2px;">
-      Loading...
+    <div id="loading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0a; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;">
+      <!-- Animated ring -->
+      <div id="loading-ring" style="position: relative; width: 120px; height: 120px; margin-bottom: 32px;">
+        <svg width="120" height="120" viewBox="0 0 120 120" style="transform: rotate(-90deg);">
+          <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+          <circle id="loading-circle" cx="60" cy="60" r="54" fill="none" stroke="#ff2200" stroke-width="1.5" 
+            stroke-dasharray="339.292" stroke-dashoffset="339.292" stroke-linecap="round"
+            style="transition: stroke-dashoffset 0.4s cubic-bezier(0.4, 0, 0.2, 1); filter: drop-shadow(0 0 6px rgba(255,34,0,0.4));"/>
+        </svg>
+        <div id="loading-percent" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: 200; color: #ff2200; letter-spacing: 2px; font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;">0</div>
+      </div>
+      <!-- Subtle tagline -->
+      <div style="font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,0.2); font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif; font-weight: 300;">Loading</div>
     </div>
-    <div id="instructions" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); color: #666; text-align: center; z-index: 100; font-size: 14px; opacity: 0.8; letter-spacing: 1px; font-weight: 300;">
+    <div id="instructions" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); color: #666; text-align: center; z-index: 100; font-size: 14px; opacity: 0; letter-spacing: 1px; font-weight: 300;">
       Drag to rotate sphere • Click project to view
     </div>
     <script type="module" src="/src/main.js"></script>
