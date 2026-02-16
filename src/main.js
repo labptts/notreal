@@ -14,7 +14,8 @@ cursorEl.id = 'custom-cursor';
 cursorEl.style.cssText = `
   position: fixed; top: 0; left: 0; width: 32px; height: 32px;
   border-radius: 50%; pointer-events: none; z-index: 9999;
-  mix-blend-mode: difference; background: white;
+  mix-blend-mode: difference;
+  background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 40%, rgba(255,255,255,0) 70%);
   transform: translate(-50%, -50%);
   transition: width 0.25s ease, height 0.25s ease;
 `;
@@ -56,33 +57,25 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 0.9;
 document.querySelector('#app').appendChild(renderer.domElement);
 
 // ============================================================
 // LIGHTING
 // ============================================================
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 
-const keyLight = new THREE.DirectionalLight(0xfff8f0, 1.2);
+const keyLight = new THREE.DirectionalLight(0xfff8f0, 0.6);
 keyLight.position.set(8, 10, 8);
 scene.add(keyLight);
 
-const fillLight = new THREE.DirectionalLight(0xe0e8ff, 0.5);
+const fillLight = new THREE.DirectionalLight(0xe0e8ff, 0.35);
 fillLight.position.set(-10, 3, 5);
 scene.add(fillLight);
 
-const rimLight = new THREE.DirectionalLight(0xffeedd, 0.7);
+const rimLight = new THREE.DirectionalLight(0xffeedd, 0.3);
 rimLight.position.set(-3, -5, -10);
 scene.add(rimLight);
-
-const topLight = new THREE.DirectionalLight(0xffffff, 0.3);
-topLight.position.set(0, 15, 0);
-scene.add(topLight);
-
-const specLight = new THREE.PointLight(0xffffff, 0.8, 30);
-specLight.position.set(5, 5, 12);
-scene.add(specLight);
 
 // ============================================================
 // ENVIRONMENT MAP
@@ -104,14 +97,14 @@ function createStudioEnvTexture() {
   ctx.fillStyle = baseGrad;
   ctx.fillRect(0, 0, 1024, 512);
   const keyGrad = ctx.createRadialGradient(750, 120, 0, 750, 120, 250);
-  keyGrad.addColorStop(0, 'rgba(255, 252, 245, 0.9)');
-  keyGrad.addColorStop(0.4, 'rgba(255, 250, 240, 0.4)');
+  keyGrad.addColorStop(0, 'rgba(255, 252, 245, 0.4)');
+  keyGrad.addColorStop(0.4, 'rgba(255, 250, 240, 0.15)');
   keyGrad.addColorStop(1, 'rgba(255, 250, 240, 0)');
   ctx.fillStyle = keyGrad;
   ctx.fillRect(0, 0, 1024, 512);
   const fillG = ctx.createRadialGradient(200, 200, 0, 200, 200, 300);
-  fillG.addColorStop(0, 'rgba(230, 235, 255, 0.5)');
-  fillG.addColorStop(0.5, 'rgba(230, 235, 255, 0.2)');
+  fillG.addColorStop(0, 'rgba(230, 235, 255, 0.25)');
+  fillG.addColorStop(0.5, 'rgba(230, 235, 255, 0.1)');
   fillG.addColorStop(1, 'rgba(230, 235, 255, 0)');
   ctx.fillStyle = fillG;
   ctx.fillRect(0, 0, 1024, 512);
@@ -210,7 +203,7 @@ const iridescentShader = {
     time: { value: 0 },
     iriIntensity: { value: 0.12 },
     fresnelPower: { value: 3.0 },
-    fresnelIntensity: { value: 0.5 },
+    fresnelIntensity: { value: 0.25 },
   },
   vertexShader: `
     varying vec3 vNormal;
@@ -349,11 +342,11 @@ creators.forEach((creator, ci) => {
     const frontMat = new THREE.MeshPhysicalMaterial({
       map: panelImage,
       side: THREE.FrontSide,
-      roughness: 0.25,
-      metalness: 0.05,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.15,
-      envMapIntensity: 0.7,
+      roughness: 0.35,
+      metalness: 0.02,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.3,
+      envMapIntensity: 0.3,
       transparent: true,
       opacity: 1
     });
@@ -402,7 +395,7 @@ creators.forEach((creator, ci) => {
       time: { value: 0 },
       iriIntensity: { value: 0.12 },
       fresnelPower: { value: 3.0 },
-      fresnelIntensity: { value: 0.5 },
+      fresnelIntensity: { value: 0.25 },
     },
     transparent: true,
     depthWrite: false,
@@ -926,9 +919,9 @@ composer.addPass(new RenderPass(scene, camera));
 // Bloom
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.35,  // strength
-  0.6,   // radius
-  0.85   // threshold
+  0.15,  // strength
+  0.4,   // radius
+  0.9    // threshold
 );
 composer.addPass(bloomPass);
 
