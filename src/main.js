@@ -37,8 +37,8 @@ document.addEventListener('mousemove', (e) => {
 });
 function updateCursor() {
   if (!cursorEl) return;
-  cursorX += (cursorTargetX - cursorX) * 0.15;
-  cursorY += (cursorTargetY - cursorY) * 0.15;
+  cursorX += (cursorTargetX - cursorX) * 0.55;
+  cursorY += (cursorTargetY - cursorY) * 0.55;
   cursorEl.style.left = cursorX + 'px';
   cursorEl.style.top = cursorY + 'px';
 }
@@ -286,15 +286,13 @@ loadingManager.onLoad = () => {
     // Show instructions
     const instr = document.getElementById('instructions');
     if (instr) instr.style.opacity = '0.8';
-    // Reveal name labels
-    nameLabels.forEach((el, i) => {
-      setTimeout(() => {
-        if (!isMobile || isCarouselCenter(i)) {
-          el.style.opacity = '0.85';
-        }
-        el.style.filter = 'blur(0px)';
-      }, 300 + i * 120);
-    });
+    // Reveal name label after loading
+    setTimeout(() => {
+      nameLabelEl.textContent = creators[carouselCurrentIndex].name;
+      currentLabelIndex = carouselCurrentIndex;
+      nameLabelEl.style.opacity = '0.85';
+      labelVisible = true;
+    }, 500);
   }, 400);
 };
 
@@ -771,74 +769,72 @@ causticsMesh.renderOrder = -2;
 scene.add(causticsMesh);
 
 // ============================================================
-// HTML NAME LABELS — with blur-reveal animation
+// HTML NAME LABEL — single fixed element, centered on screen
 // ============================================================
-const nameLabelsContainer = document.createElement('div');
-nameLabelsContainer.id = 'name-labels';
-nameLabelsContainer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
-document.body.appendChild(nameLabelsContainer);
+const nameLabelEl = document.createElement('div');
+nameLabelEl.id = 'creator-name-label';
+nameLabelEl.style.cssText = `
+  position: fixed;
+  left: 50%;
+  bottom: ${isMobile ? '28%' : '25%'};
+  transform: translateX(-50%);
+  color: #222;
+  font-size: ${isMobile ? '10' : '13'}px;
+  font-weight: 500;
+  letter-spacing: ${isMobile ? '1' : '2'}px;
+  text-transform: uppercase;
+  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  white-space: nowrap;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.35s ease;
+`;
+document.body.appendChild(nameLabelEl);
 
-const nameLabels = creators.map((creator, i) => {
-  const el = document.createElement('div');
-  el.className = 'creator-name-label';
-  el.textContent = creator.name;
-  el.style.cssText = `
-    position: absolute;
-    color: #222;
-    font-size: ${isMobile ? '10' : '13'}px;
-    font-weight: 500;
-    letter-spacing: ${isMobile ? '1' : '2'}px;
-    text-transform: uppercase;
-    font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-    white-space: nowrap;
-    transform: translate(-50%, 0);
-    text-align: center;
-    opacity: 0;
-    filter: blur(12px);
-    transition: opacity 0.3s, filter 0.3s;
-  `;
-  nameLabelsContainer.appendChild(el);
-  return el;
-});
+// Keep a dummy nameLabels array for compatibility with loadingManager.onLoad
+const nameLabels = creators.map(() => ({ style: { opacity: '0', filter: '' } }));
 
-// Blur-reveal on load — handled by loadingManager.onLoad
+let currentLabelIndex = -1;
+let labelVisible = false;
 
 function updateNameLabels() {
-  creatorGroups.forEach((group, i) => {
-    // For carousel: always center the label horizontally on screen
-    // Only show the label for the center sphere, fade others
+  if (isDetailView) {
+    nameLabelEl.style.opacity = '0';
+    labelVisible = false;
+    return;
+  }
+
+  // Detect if carousel is moving
+  const isMoving = Math.abs(carouselAngle - carouselTargetAngle) > 0.05;
+
+  // Find current center creator
+  let centerIdx = -1;
+  for (let i = 0; i < creators.length; i++) {
     const angle = carouselAngle + i * carouselAnglePerItem;
-    const distFromFront = Math.abs(Math.sin(angle));
-    const isCenter = distFromFront < 0.3;
-
-    // Fixed center position on screen
-    const cx = window.innerWidth / 2;
-
-    // Project bottom of the center sphere to get vertical position
-    const bottomWorld = new THREE.Vector3(0, -sphereRadius, 0);
-    group.localToWorld(bottomWorld);
-    bottomWorld.project(camera);
-    const by = (-bottomWorld.y * 0.5 + 0.5) * window.innerHeight;
-
-    const pixelOffset = isMobile ? 12 : 18;
-    nameLabels[i].style.left = cx + 'px';
-    nameLabels[i].style.top = (by + pixelOffset) + 'px';
-
-    if (!isDetailView) {
-      if (isCenter) {
-        nameLabels[i].style.opacity = '0.85';
-        nameLabels[i].style.filter = 'blur(0px)';
-        nameLabels[i].style.display = 'block';
-      } else {
-        nameLabels[i].style.opacity = '0';
-        nameLabels[i].style.filter = 'blur(4px)';
-        // Hide completely when far from center to avoid stacking
-        nameLabels[i].style.display = distFromFront > 0.6 ? 'none' : 'block';
-      }
-    } else {
-      nameLabels[i].style.display = 'none';
+    if (Math.abs(Math.sin(angle)) < 0.3) {
+      centerIdx = i;
+      break;
     }
-  });
+  }
+
+  if (isMoving) {
+    // Fade out during motion
+    nameLabelEl.style.opacity = '0';
+    labelVisible = false;
+  } else if (centerIdx >= 0) {
+    // Update text if changed
+    if (currentLabelIndex !== centerIdx) {
+      currentLabelIndex = centerIdx;
+      nameLabelEl.textContent = creators[centerIdx].name;
+    }
+    // Fade in when settled
+    if (!labelVisible) {
+      nameLabelEl.style.opacity = '0.85';
+      labelVisible = true;
+    }
+  }
 }
 
 // ============================================================
@@ -1243,7 +1239,7 @@ if (!isMobile) {
   arrowLeft.id = 'carousel-arrow-left';
   arrowLeft.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
   arrowLeft.style.cssText = arrowStyle + 'left: 24px; transform: translateY(-50%);';
-  arrowLeft.addEventListener('click', () => navigateCarousel(-1));
+  arrowLeft.addEventListener('click', () => navigateCarousel(1));
   arrowLeft.addEventListener('mouseenter', () => { arrowLeft.style.background = 'rgba(0,0,0,0.1)'; arrowLeft.style.transform = 'translateY(-50%) scale(1.1)'; setCursorHover(true); });
   arrowLeft.addEventListener('mouseleave', () => { arrowLeft.style.background = 'rgba(0,0,0,0.04)'; arrowLeft.style.transform = 'translateY(-50%) scale(1)'; setCursorHover(false); });
   document.body.appendChild(arrowLeft);
@@ -1252,7 +1248,7 @@ if (!isMobile) {
   arrowRight.id = 'carousel-arrow-right';
   arrowRight.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
   arrowRight.style.cssText = arrowStyle + 'right: 24px; transform: translateY(-50%);';
-  arrowRight.addEventListener('click', () => navigateCarousel(1));
+  arrowRight.addEventListener('click', () => navigateCarousel(-1));
   arrowRight.addEventListener('mouseenter', () => { arrowRight.style.background = 'rgba(0,0,0,0.1)'; arrowRight.style.transform = 'translateY(-50%) scale(1.1)'; setCursorHover(true); });
   arrowRight.addEventListener('mouseleave', () => { arrowRight.style.background = 'rgba(0,0,0,0.04)'; arrowRight.style.transform = 'translateY(-50%) scale(1)'; setCursorHover(false); });
   document.body.appendChild(arrowRight);
@@ -1260,8 +1256,8 @@ if (!isMobile) {
   // Also support keyboard arrows
   document.addEventListener('keydown', (e) => {
     if (isDetailView) return;
-    if (e.key === 'ArrowLeft') navigateCarousel(-1);
-    if (e.key === 'ArrowRight') navigateCarousel(1);
+    if (e.key === 'ArrowLeft') navigateCarousel(1);
+    if (e.key === 'ArrowRight') navigateCarousel(-1);
   });
 }
 
@@ -1379,13 +1375,13 @@ function openDetailView(panel) {
           gsap.to(child.material, { opacity: 0, duration: 0.5 });
         }
       });
-      nameLabels[i].style.opacity = '0';
-      nameLabels[i].style.filter = 'blur(8px)';
+      // nameLabels hidden via single label element
     }
   });
 
-  // Hide selected sphere's name label
-  nameLabels[selectedCreatorIndex].style.opacity = '0';
+  // Hide the single name label
+  nameLabelEl.style.opacity = '0';
+  labelVisible = false;
 
   setTimeout(() => {
     creatorInfoPanel.style.opacity = '1';
@@ -1411,16 +1407,18 @@ function createPanelBorder(panel) {
   const pi = panel.userData.projectIndex;
   const config = panelLayout[pi];
   const borderGroup = new THREE.Group();
-  const borderR = sphereRadius + 0.03;
-  const borderThickness = 0.025;
+  const borderR = sphereRadius + 0.04;
+  const borderThickness = 0.07;
   const segs = 48;
   const borderMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+    color: 0xaaccff,
     transparent: true,
     opacity: 0,
     side: THREE.DoubleSide,
-    depthTest: true,
+    depthTest: false,
+    blending: THREE.AdditiveBlending,
   });
+  borderGroup.renderOrder = 999;
 
   // Top border strip
   const topGeo = new THREE.BufferGeometry();
@@ -1751,6 +1749,75 @@ const vignettePass = new ShaderPass(vignetteShader);
 composer.addPass(vignettePass);
 
 // ============================================================
+// MORPHING BLACK BLOB BACKGROUND
+// ============================================================
+const blobCanvas = document.createElement('canvas');
+blobCanvas.id = 'blob-bg';
+blobCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;';
+document.body.insertBefore(blobCanvas, document.body.firstChild);
+const blobCtx = blobCanvas.getContext('2d');
+
+function resizeBlobCanvas() {
+  blobCanvas.width = window.innerWidth;
+  blobCanvas.height = window.innerHeight;
+}
+resizeBlobCanvas();
+window.addEventListener('resize', resizeBlobCanvas);
+
+// Simple 2D noise function (value noise)
+function hash(x, y) {
+  let h = x * 374761393 + y * 668265263;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return ((h ^ (h >> 16)) & 0x7fffffff) / 0x7fffffff;
+}
+function smoothNoise(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = x - ix, fy = y - iy;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const n00 = hash(ix, iy), n10 = hash(ix + 1, iy);
+  const n01 = hash(ix, iy + 1), n11 = hash(ix + 1, iy + 1);
+  return n00 * (1-sx)*(1-sy) + n10 * sx*(1-sy) + n01 * (1-sx)*sy + n11 * sx * sy;
+}
+function fbm(x, y, octaves) {
+  let val = 0, amp = 0.5, freq = 1;
+  for (let i = 0; i < octaves; i++) {
+    val += amp * smoothNoise(x * freq, y * freq);
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return val;
+}
+
+function drawMorphBlob(t) {
+  const w = blobCanvas.width, h = blobCanvas.height;
+  blobCtx.clearRect(0, 0, w, h);
+
+  // Center moves slowly
+  const cx = w * 0.5 + Math.sin(t * 0.15) * w * 0.06;
+  const cy = h * 0.5 + Math.cos(t * 0.12) * h * 0.05;
+
+  // Base radius covers ~70-80% of screen
+  const baseR = Math.min(w, h) * 0.42;
+  const points = 120;
+
+  blobCtx.beginPath();
+  for (let i = 0; i <= points; i++) {
+    const a = (i / points) * Math.PI * 2;
+    // Multiple noise layers for organic morphing
+    const n1 = fbm(Math.cos(a) * 1.5 + t * 0.08, Math.sin(a) * 1.5 + t * 0.06, 4);
+    const n2 = fbm(Math.cos(a) * 0.8 - t * 0.05 + 10, Math.sin(a) * 0.8 + t * 0.07 + 10, 3);
+    const r = baseR * (0.85 + n1 * 0.35 + n2 * 0.15);
+    const px = cx + Math.cos(a) * r;
+    const py = cy + Math.sin(a) * r;
+    if (i === 0) blobCtx.moveTo(px, py);
+    else blobCtx.lineTo(px, py);
+  }
+  blobCtx.closePath();
+  blobCtx.fillStyle = '#000000';
+  blobCtx.fill();
+}
+
+// ============================================================
 // ANIMATION LOOP
 // ============================================================
 let time = 0;
@@ -1761,6 +1828,9 @@ function animate() {
 
   controller.update();
   updateCursor();
+
+  // Draw morphing blob background
+  drawMorphBlob(time);
 
   // Floating / breathing animation — each sphere with unique phase
   if (!isDetailView) {
