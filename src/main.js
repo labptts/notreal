@@ -57,7 +57,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
+renderer.toneMappingExposure = 0.85;
 document.querySelector('#app').appendChild(renderer.domElement);
 
 // ============================================================
@@ -201,9 +201,9 @@ function createSphericalPanelGeometry(radius, phiStart, phiLength, thetaStart, t
 const iridescentShader = {
   uniforms: {
     time: { value: 0 },
-    iriIntensity: { value: 0.12 },
+    iriIntensity: { value: 0.05 },
     fresnelPower: { value: 3.0 },
-    fresnelIntensity: { value: 0.25 },
+    fresnelIntensity: { value: 0.1 },
   },
   vertexShader: `
     varying vec3 vNormal;
@@ -254,27 +254,44 @@ const iridescentShader = {
 // ============================================================
 // CREATE PROJECT LABEL TEXTURE (for each panel)
 // ============================================================
-function createProjectLabelTexture(projectName) {
+function createProjectLabelTexture(projectName, labelAtTop = false) {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 1024;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 1024, 1024);
 
-  const grad = ctx.createLinearGradient(0, 700, 0, 1024);
-  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 700, 1024, 324);
+  if (labelAtTop) {
+    const grad = ctx.createLinearGradient(0, 0, 0, 324);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 324);
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-  ctx.shadowBlur = 20;
-  ctx.shadowOffsetY = 2;
-  ctx.fillText(projectName, 512, 900);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText(projectName, 512, 124);
+  } else {
+    const grad = ctx.createLinearGradient(0, 700, 0, 1024);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 700, 1024, 324);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText(projectName, 512, 900);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -296,7 +313,7 @@ const iridescentMeshes = []; // for time uniform update
 const gap = 0.0;
 // 4 panels: 2 rows x 2 columns covering visible sphere
 const panelLayout = [];
-const phiBoundaries = [0.25, Math.PI / 2, Math.PI - 0.25];
+const phiBoundaries = [0.01, Math.PI / 2, Math.PI - 0.01];
 const panelsPerRow = 2;
 for (let row = 0; row < 2; row++) {
   const phiStart = phiBoundaries[row] + gap;
@@ -306,7 +323,7 @@ for (let row = 0; row < 2; row++) {
   for (let col = 0; col < panelsPerRow; col++) {
     const thetaStart = col * thetaSize + gap;
     const thetaLength = thetaSize - gap * 2;
-    panelLayout.push({ phiStart, phiLength, thetaStart, thetaLength });
+    panelLayout.push({ phiStart, phiLength, thetaStart, thetaLength, row });
   }
 }
 
@@ -342,11 +359,11 @@ creators.forEach((creator, ci) => {
     const frontMat = new THREE.MeshPhysicalMaterial({
       map: panelImage,
       side: THREE.FrontSide,
-      roughness: 0.35,
+      roughness: 0.12,
       metalness: 0.02,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.3,
-      envMapIntensity: 0.3,
+      clearcoat: 0.7,
+      clearcoatRoughness: 0.05,
+      envMapIntensity: 0.4,
       transparent: true,
       opacity: 1
     });
@@ -354,9 +371,10 @@ creators.forEach((creator, ci) => {
     cardGroup.add(frontPanel);
 
     // Project label overlay
+    const labelAtTop = config.row === 1;
     const labelGeo = createSphericalPanelGeometry(sphereRadius + 0.005, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const labelMat = new THREE.MeshBasicMaterial({
-      map: createProjectLabelTexture(projName),
+      map: createProjectLabelTexture(projName, labelAtTop),
       side: THREE.FrontSide,
       transparent: true,
       depthWrite: false
@@ -393,9 +411,9 @@ creators.forEach((creator, ci) => {
     ...iridescentShader,
     uniforms: {
       time: { value: 0 },
-      iriIntensity: { value: 0.12 },
+      iriIntensity: { value: 0.05 },
       fresnelPower: { value: 3.0 },
-      fresnelIntensity: { value: 0.25 },
+      fresnelIntensity: { value: 0.1 },
     },
     transparent: true,
     depthWrite: false,
@@ -549,11 +567,22 @@ class InteractionController {
   }
 
   onDown(event) {
-    if (isDetailView) return;
     this.startMouse = { x: event.clientX, y: event.clientY };
     this.previousMouse = { x: event.clientX, y: event.clientY };
     this.hasDragged = false;
     this.wasPanning = false;
+
+    if (isDetailView) {
+      // In detail view, only allow rotating the selected sphere
+      const idx = this.hitTestSphere(event);
+      if (idx === selectedCreatorIndex) {
+        this.activeSphereIndex = idx;
+        this.activeSphere = sphereMeshGroups[idx];
+        this.isRotatingSphere = true;
+        this.velocities[idx] = { x: 0, y: 0 };
+      }
+      return;
+    }
 
     const idx = this.hitTestSphere(event);
     if (idx >= 0) {
@@ -570,8 +599,6 @@ class InteractionController {
   }
 
   onMove(event) {
-    if (isDetailView) return;
-
     const dx = event.clientX - this.previousMouse.x;
     const dy = event.clientY - this.previousMouse.y;
     const totalDx = event.clientX - this.startMouse.x;
@@ -680,8 +707,22 @@ function onMouseMoveHover(event) {
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-  if (isDetailView || controller.isPanning || controller.wasPanning) {
+  if (controller.isPanning || controller.wasPanning) {
     setCursorHover(false);
+    return;
+  }
+
+  if (isDetailView) {
+    // In detail view, hover only on selected sphere panels
+    raycaster.setFromCamera(mouse, camera);
+    const selectedObjects = sphereMeshGroups[selectedCreatorIndex].children.flatMap(c => c.children || [c]);
+    const intersects = raycaster.intersectObjects(selectedObjects, true);
+    const hit = findFrontFacingPanel(intersects);
+    if (hit && !controller.isRotatingSphere) {
+      setCursorHover(true);
+    } else {
+      setCursorHover(false);
+    }
     return;
   }
 
@@ -746,31 +787,47 @@ renderer.domElement.addEventListener('mousemove', onMouseMoveHover);
 // ============================================================
 // DETAIL VIEW
 // ============================================================
-const infoPanel = document.createElement('div');
-infoPanel.id = 'info-panel';
-infoPanel.style.cssText = `
+// LEFT: Creator info panel
+const creatorInfoPanel = document.createElement('div');
+creatorInfoPanel.id = 'creator-info-panel';
+creatorInfoPanel.style.cssText = `
+  position: fixed; left: 60px; top: 50%; transform: translateY(-50%);
+  width: 280px; padding: 0;
+  z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.5s ease;
+  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+`;
+creatorInfoPanel.innerHTML = `
+  <div style="font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 12px;" id="detail-creator-name"></div>
+  <div style="font-size: 14px; color: #666; line-height: 1.6;">создает ии-ролики и ии-фотографии красиво</div>
+`;
+document.body.appendChild(creatorInfoPanel);
+
+// RIGHT: Project info panel
+const projectInfoPanel = document.createElement('div');
+projectInfoPanel.id = 'project-info-panel';
+projectInfoPanel.style.cssText = `
   position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
-  width: 320px; padding: 40px;
+  width: 280px; padding: 40px;
   background: rgba(255,255,255,0.95); backdrop-filter: blur(20px);
   border-radius: 16px; z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
 `;
-infoPanel.innerHTML = `
-  <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 8px;" id="info-creator"></div>
-  <div style="font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 16px;" id="info-project"></div>
-  <div style="font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 24px;">This is a showcase project demonstrating creative work and artistic vision.</div>
-  <button id="info-close" style="
+projectInfoPanel.innerHTML = `
+  <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 8px;">Проект</div>
+  <div style="font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 24px;" id="detail-project-name"></div>
+  <button id="detail-close" style="
     background: #1a1a1a; color: white; border: none; padding: 12px 28px; border-radius: 8px;
     font-size: 14px; cursor: none; font-family: inherit; letter-spacing: 1px; transition: background 0.2s;
   ">Close</button>
 `;
-document.body.appendChild(infoPanel);
+document.body.appendChild(projectInfoPanel);
 
-document.getElementById('info-close').addEventListener('click', returnToOverview);
-document.getElementById('info-close').addEventListener('mouseenter', (e) => { e.target.style.background = '#333'; setCursorHover(true); });
-document.getElementById('info-close').addEventListener('mouseleave', (e) => { e.target.style.background = '#1a1a1a'; setCursorHover(false); });
+document.getElementById('detail-close').addEventListener('click', returnToOverview);
+document.getElementById('detail-close').addEventListener('mouseenter', (e) => { e.target.style.background = '#333'; setCursorHover(true); });
+document.getElementById('detail-close').addEventListener('mouseleave', (e) => { e.target.style.background = '#1a1a1a'; setCursorHover(false); });
 
 function openDetailView(panel) {
   if (isDetailView) return;
@@ -778,8 +835,8 @@ function openDetailView(panel) {
   selectedPanel = panel;
   selectedCreatorIndex = panel.userData.creatorIndex;
 
-  document.getElementById('info-creator').textContent = panel.userData.creatorName;
-  document.getElementById('info-project').textContent = panel.userData.projectName;
+  document.getElementById('detail-creator-name').textContent = panel.userData.creatorName;
+  document.getElementById('detail-project-name').textContent = panel.userData.projectName;
 
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
@@ -792,21 +849,22 @@ function openDetailView(panel) {
     ease: 'power3.inOut'
   });
 
+  // Blur non-selected spheres (keep textures visible)
   creatorGroups.forEach((g, i) => {
     if (i !== selectedCreatorIndex) {
-      gsap.to(g.position, { z: -3, duration: 0.8, ease: 'power2.in' });
+      gsap.to(g.position, { z: -5, duration: 0.8, ease: 'power2.in' });
       sphereMeshGroups[i].children.forEach(child => {
         if (child.children) {
           child.children.forEach(m => {
             if (m.material && m.material.transparent !== undefined) {
               m.material.transparent = true;
-              gsap.to(m.material, { opacity: 0, duration: 0.6 });
+              gsap.to(m.material, { opacity: 0.3, duration: 0.6 });
             }
           });
         }
         if (child.material) {
           child.material.transparent = true;
-          gsap.to(child.material, { opacity: 0, duration: 0.6 });
+          gsap.to(child.material, { opacity: 0.3, duration: 0.6 });
         }
       });
       nameLabels[i].style.opacity = '0';
@@ -814,21 +872,33 @@ function openDetailView(panel) {
     }
   });
 
+  // Hide selected sphere's name label
+  nameLabels[selectedCreatorIndex].style.opacity = '0';
+
   setTimeout(() => {
-    infoPanel.style.opacity = '1';
-    infoPanel.style.pointerEvents = 'auto';
+    creatorInfoPanel.style.opacity = '1';
+    creatorInfoPanel.style.pointerEvents = 'auto';
+    projectInfoPanel.style.opacity = '1';
+    projectInfoPanel.style.pointerEvents = 'auto';
   }, 500);
 
   const instr = document.getElementById('instructions');
   if (instr) instr.style.opacity = '0';
 }
 
+function updateDetailProject(panel) {
+  selectedPanel = panel;
+  document.getElementById('detail-project-name').textContent = panel.userData.projectName;
+}
+
 function returnToOverview() {
   if (!isDetailView) return;
   isDetailView = false;
 
-  infoPanel.style.opacity = '0';
-  infoPanel.style.pointerEvents = 'none';
+  creatorInfoPanel.style.opacity = '0';
+  creatorInfoPanel.style.pointerEvents = 'none';
+  projectInfoPanel.style.opacity = '0';
+  projectInfoPanel.style.pointerEvents = 'none';
 
   gsap.to(camera.position, {
     x: baseCameraPos.x + cameraPanOffset.x,
@@ -864,14 +934,23 @@ renderer.domElement.addEventListener('click', (event) => {
   if (controller.hasDragged) return;
   if (controller.wasPanning) return;
 
-  if (isDetailView) {
-    returnToOverview();
-    return;
-  }
-
   const rect = renderer.domElement.getBoundingClientRect();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  if (isDetailView) {
+    // In detail view: click panel on selected sphere to switch project, click elsewhere to close
+    raycaster.setFromCamera(mouse, camera);
+    const selectedObjects = sphereMeshGroups[selectedCreatorIndex].children.flatMap(c => c.children || [c]);
+    const intersects = raycaster.intersectObjects(selectedObjects, true);
+    const hit = findFrontFacingPanel(intersects);
+    if (hit) {
+      updateDetailProject(hit.panel);
+    } else {
+      returnToOverview();
+    }
+    return;
+  }
 
   raycaster.setFromCamera(mouse, camera);
   const allObjects = sphereMeshGroups.flatMap(sg => sg.children.flatMap(c => c.children || [c]));
@@ -919,9 +998,9 @@ composer.addPass(new RenderPass(scene, camera));
 // Bloom
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.15,  // strength
+  0.0,   // strength (disabled)
   0.4,   // radius
-  0.9    // threshold
+  0.95   // threshold
 );
 composer.addPass(bloomPass);
 
