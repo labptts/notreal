@@ -340,10 +340,10 @@ creators.forEach((creator, ci) => {
   // Inner sphere — no more gaps visible
   const innerGeo = new THREE.SphereGeometry(sphereRadius - 0.02, 64, 64);
   const innerMat = new THREE.MeshPhysicalMaterial({
-    color: 0x222222,
+    color: 0xffffff,
     side: THREE.FrontSide,
-    roughness: 0.8,
-    metalness: 0.1
+    roughness: 0.9,
+    metalness: 0.0
   });
   const innerSphere = new THREE.Mesh(innerGeo, innerMat);
   sphereGroup.add(innerSphere);
@@ -385,10 +385,10 @@ creators.forEach((creator, ci) => {
     // Back
     const backGeo = createSphericalPanelGeometry(sphereRadius - 0.02, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const backMat = new THREE.MeshPhysicalMaterial({
-      color: 0x111111,
+      color: 0xffffff,
       side: THREE.BackSide,
-      roughness: 0.5,
-      metalness: 0.1
+      roughness: 0.9,
+      metalness: 0.0
     });
     const backPanel = new THREE.Mesh(backGeo, backMat);
     cardGroup.add(backPanel);
@@ -841,6 +841,15 @@ function openDetailView(panel) {
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
 
+  // Highlight selected panel
+  gsap.to(panel.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.3, ease: 'power2.out' });
+  panel.children.forEach(child => {
+    if (child.material && child.material.emissive) {
+      child.material.emissive.set(0xffffff);
+      gsap.to(child.material, { emissiveIntensity: 0.12, duration: 0.3 });
+    }
+  });
+
   gsap.to(camera.position, {
     x: targetPos.x,
     y: targetPos.y,
@@ -849,22 +858,22 @@ function openDetailView(panel) {
     ease: 'power3.inOut'
   });
 
-  // Blur non-selected spheres (keep textures visible)
+  // Hide non-selected spheres completely
   creatorGroups.forEach((g, i) => {
     if (i !== selectedCreatorIndex) {
-      gsap.to(g.position, { z: -5, duration: 0.8, ease: 'power2.in' });
+      gsap.to(g.position, { z: -8, duration: 0.8, ease: 'power2.in' });
       sphereMeshGroups[i].children.forEach(child => {
         if (child.children) {
           child.children.forEach(m => {
             if (m.material && m.material.transparent !== undefined) {
               m.material.transparent = true;
-              gsap.to(m.material, { opacity: 0.3, duration: 0.6 });
+              gsap.to(m.material, { opacity: 0, duration: 0.6 });
             }
           });
         }
         if (child.material) {
           child.material.transparent = true;
-          gsap.to(child.material, { opacity: 0.3, duration: 0.6 });
+          gsap.to(child.material, { opacity: 0, duration: 0.6 });
         }
       });
       nameLabels[i].style.opacity = '0';
@@ -887,13 +896,40 @@ function openDetailView(panel) {
 }
 
 function updateDetailProject(panel) {
+  // Reset previous selected panel
+  if (selectedPanel && selectedPanel !== panel) {
+    gsap.to(selectedPanel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
+    selectedPanel.children.forEach(child => {
+      if (child.material && child.material.emissive) {
+        gsap.to(child.material, { emissiveIntensity: 0, duration: 0.3 });
+      }
+    });
+  }
   selectedPanel = panel;
   document.getElementById('detail-project-name').textContent = panel.userData.projectName;
+  // Highlight new panel
+  gsap.to(panel.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.3, ease: 'power2.out' });
+  panel.children.forEach(child => {
+    if (child.material && child.material.emissive) {
+      child.material.emissive.set(0xffffff);
+      gsap.to(child.material, { emissiveIntensity: 0.12, duration: 0.3 });
+    }
+  });
 }
 
 function returnToOverview() {
   if (!isDetailView) return;
   isDetailView = false;
+
+  // Reset selected panel highlight
+  if (selectedPanel) {
+    gsap.to(selectedPanel.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
+    selectedPanel.children.forEach(child => {
+      if (child.material && child.material.emissive) {
+        gsap.to(child.material, { emissiveIntensity: 0, duration: 0.3 });
+      }
+    });
+  }
 
   creatorInfoPanel.style.opacity = '0';
   creatorInfoPanel.style.pointerEvents = 'none';
