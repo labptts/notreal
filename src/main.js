@@ -1634,15 +1634,25 @@ composer.addPass(vignettePass);
 // ============================================================
 // MORPHING BLACK BLOB BACKGROUND
 // ============================================================
+// Two stacked DOM canvases: blob (with CSS blur) + noise (crisp on top)
 const blobCanvas = document.createElement('canvas');
 blobCanvas.id = 'blob-bg';
-blobCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;';
+blobCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:-2;pointer-events:none;filter:blur(60px);-webkit-filter:blur(60px);';
 document.body.insertBefore(blobCanvas, document.body.firstChild);
 const blobCtx = blobCanvas.getContext('2d');
+
+// Noise canvas — sits on top of blob, no blur
+const noiseDomCanvas = document.createElement('canvas');
+noiseDomCanvas.id = 'noise-bg';
+noiseDomCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;';
+document.body.insertBefore(noiseDomCanvas, blobCanvas.nextSibling);
+const noiseDomCtx = noiseDomCanvas.getContext('2d');
 
 function resizeBlobCanvas() {
   blobCanvas.width = window.innerWidth;
   blobCanvas.height = window.innerHeight;
+  noiseDomCanvas.width = window.innerWidth;
+  noiseDomCanvas.height = window.innerHeight;
 }
 resizeBlobCanvas();
 window.addEventListener('resize', resizeBlobCanvas);
@@ -1670,10 +1680,6 @@ function fbm(x, y, octaves) {
   }
   return val;
 }
-
-// Off-screen canvas for blob shape (drawn then blurred onto main blob canvas)
-const blobShapeCanvas = document.createElement('canvas');
-const blobShapeCtx = blobShapeCanvas.getContext('2d');
 
 // Noise overlay canvas (pre-generated, refreshed periodically)
 const noiseCanvas = document.createElement('canvas');
@@ -1704,15 +1710,13 @@ function updateNoise() {
 function drawMorphBlob(t) {
   const w = blobCanvas.width, h = blobCanvas.height;
 
-  // Ensure offscreen canvases match size
-  if (blobShapeCanvas.width !== w || blobShapeCanvas.height !== h) {
-    blobShapeCanvas.width = w;
-    blobShapeCanvas.height = h;
+  // Ensure noise canvas matches size
+  if (noiseCanvas.width !== w || noiseCanvas.height !== h) {
     generateNoiseTexture(w, h);
   }
 
-  // --- Draw blob shape on offscreen canvas ---
-  blobShapeCtx.clearRect(0, 0, w, h);
+  // --- Draw blob shape directly on blobCanvas (CSS blur handles feathering) ---
+  blobCtx.clearRect(0, 0, w, h);
 
   // Center moves slowly
   const cx = w * 0.5 + Math.sin(t * 0.15) * w * 0.06;
@@ -1722,7 +1726,7 @@ function drawMorphBlob(t) {
   const baseR = Math.min(w, h) * 0.42;
   const points = 120;
 
-  blobShapeCtx.beginPath();
+  blobCtx.beginPath();
   for (let i = 0; i <= points; i++) {
     const a = (i / points) * Math.PI * 2;
     // Multiple noise layers for organic morphing
@@ -1731,30 +1735,18 @@ function drawMorphBlob(t) {
     const r = baseR * (0.85 + n1 * 0.35 + n2 * 0.15);
     const px = cx + Math.cos(a) * r;
     const py = cy + Math.sin(a) * r;
-    if (i === 0) blobShapeCtx.moveTo(px, py);
-    else blobShapeCtx.lineTo(px, py);
+    if (i === 0) blobCtx.moveTo(px, py);
+    else blobCtx.lineTo(px, py);
   }
-  blobShapeCtx.closePath();
-  blobShapeCtx.fillStyle = '#000000';
-  blobShapeCtx.fill();
+  blobCtx.closePath();
+  blobCtx.fillStyle = '#000000';
+  blobCtx.fill();
 
-  // --- Composite onto main blob canvas with feathered edges ---
-  blobCtx.clearRect(0, 0, w, h);
-
-  // Use shadowBlur for cross-browser soft edges (CSS filter blur not supported on all mobile)
-  blobCtx.save();
-  blobCtx.shadowColor = '#000000';
-  blobCtx.shadowBlur = 80;
-  blobCtx.shadowOffsetX = 0;
-  blobCtx.shadowOffsetY = 0;
-  // Draw blob shape — both the shape itself and its shadow (feathered edge) render
-  blobCtx.drawImage(blobShapeCanvas, 0, 0);
-  blobCtx.restore();
-
-  // --- Noise overlay (update every 3 frames for perf) ---
+  // --- Noise overlay on separate DOM canvas (not blurred) ---
   noiseFrame++;
   if (noiseFrame % 3 === 0) updateNoise();
-  blobCtx.drawImage(noiseCanvas, 0, 0, noiseCanvas.width, noiseCanvas.height, 0, 0, w, h);
+  noiseDomCtx.clearRect(0, 0, w, h);
+  noiseDomCtx.drawImage(noiseCanvas, 0, 0, noiseCanvas.width, noiseCanvas.height, 0, 0, w, h);
 }
 
 // ============================================================
