@@ -7,20 +7,28 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 // ============================================================
-// CUSTOM CURSOR (inversion circle)
+// MOBILE DETECTION
 // ============================================================
-const cursorEl = document.createElement('div');
-cursorEl.id = 'custom-cursor';
-cursorEl.style.cssText = `
-  position: fixed; top: 0; left: 0; width: 32px; height: 32px;
-  border-radius: 50%; pointer-events: none; z-index: 9999;
-  mix-blend-mode: difference;
-  background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 40%, rgba(255,255,255,0) 70%);
-  transform: translate(-50%, -50%);
-  transition: width 0.25s ease, height 0.25s ease;
-`;
-document.body.appendChild(cursorEl);
-document.body.style.cursor = 'none';
+const isMobile = ('ontouchstart' in window) || (window.innerWidth < 768);
+
+// ============================================================
+// CUSTOM CURSOR (inversion circle) — desktop only
+// ============================================================
+let cursorEl = null;
+if (!isMobile) {
+  cursorEl = document.createElement('div');
+  cursorEl.id = 'custom-cursor';
+  cursorEl.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 32px; height: 32px;
+    border-radius: 50%; pointer-events: none; z-index: 9999;
+    mix-blend-mode: difference;
+    background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 40%, rgba(255,255,255,0) 70%);
+    transform: translate(-50%, -50%);
+    transition: width 0.25s ease, height 0.25s ease;
+  `;
+  document.body.appendChild(cursorEl);
+  document.body.style.cursor = 'none';
+}
 
 let cursorX = 0, cursorY = 0, cursorTargetX = 0, cursorTargetY = 0;
 document.addEventListener('mousemove', (e) => {
@@ -28,12 +36,14 @@ document.addEventListener('mousemove', (e) => {
   cursorTargetY = e.clientY;
 });
 function updateCursor() {
+  if (!cursorEl) return;
   cursorX += (cursorTargetX - cursorX) * 0.15;
   cursorY += (cursorTargetY - cursorY) * 0.15;
   cursorEl.style.left = cursorX + 'px';
   cursorEl.style.top = cursorY + 'px';
 }
 function setCursorHover(isHover) {
+  if (!cursorEl) return;
   const s = isHover ? '48px' : '32px';
   cursorEl.style.width = s;
   cursorEl.style.height = s;
@@ -48,8 +58,8 @@ scene.background = new THREE.Color(0xffffff);
 // Fog for depth haze (very subtle)
 scene.fog = new THREE.FogExp2(0xffffff, 0.004);
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-const baseCameraZ = 22;
+const camera = new THREE.PerspectiveCamera(isMobile ? 55 : 45, window.innerWidth / window.innerHeight, 0.1, 1000);
+const baseCameraZ = isMobile ? 16 : 22;
 camera.position.set(0, 0, baseCameraZ);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -197,11 +207,18 @@ const creators = [
   { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
 ];
 
-// Pyramid layout: 3 top row, 2 bottom row — BIGGER spheres
-const sphereRadius = 2.6;
-const spacingX = 6.8;
-const spacingY = 6.8;
-const creatorPositions = [
+// Responsive layout: pyramid on desktop, compact grid on mobile
+const sphereRadius = isMobile ? 2.0 : 2.6;
+const spacingX = isMobile ? 4.8 : 6.8;
+const spacingY = isMobile ? 5.0 : 6.8;
+const creatorPositions = isMobile ? [
+  // Mobile: 2-1-2 centered layout (tighter)
+  new THREE.Vector3(-spacingX * 0.5, spacingY * 0.7, 0),
+  new THREE.Vector3(spacingX * 0.5, spacingY * 0.7, 0),
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(-spacingX * 0.5, -spacingY * 0.7, 0),
+  new THREE.Vector3(spacingX * 0.5, -spacingY * 0.7, 0),
+] : [
   new THREE.Vector3(-spacingX, spacingY * 0.45, 0),
   new THREE.Vector3(0, spacingY * 0.45, 0),
   new THREE.Vector3(spacingX, spacingY * 0.45, 0),
@@ -694,9 +711,9 @@ const nameLabels = creators.map((creator, i) => {
   el.style.cssText = `
     position: absolute;
     color: #222;
-    font-size: 13px;
+    font-size: ${isMobile ? '10' : '13'}px;
     font-weight: 500;
-    letter-spacing: 2px;
+    letter-spacing: ${isMobile ? '1' : '2'}px;
     text-transform: uppercase;
     font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
     white-space: nowrap;
@@ -792,15 +809,48 @@ class InteractionController {
     this.domElement.addEventListener('mouseup', () => this.onUp());
     this.domElement.addEventListener('mouseleave', () => this.onUp());
 
+    // Touch events
+    this.lastTouchCount = 0;
+    this.pinchStartDist = 0;
+    this.pinchStartZoom = 0;
+
     this.domElement.addEventListener('touchstart', (e) => {
       e.preventDefault();
+      if (e.touches.length === 2) {
+        // Pinch zoom start
+        this.lastTouchCount = 2;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        this.pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+        this.pinchStartZoom = baseCameraPos.z;
+        return;
+      }
+      this.lastTouchCount = 1;
       this.onDown(e.touches[0]);
     }, { passive: false });
     this.domElement.addEventListener('touchmove', (e) => {
       e.preventDefault();
+      if (e.touches.length === 2) {
+        // Pinch zoom move
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const scale = this.pinchStartDist / dist;
+        baseCameraPos.z = THREE.MathUtils.clamp(
+          this.pinchStartZoom * scale, ZOOM_MIN, ZOOM_MAX
+        );
+        return;
+      }
       this.onMove(e.touches[0]);
     }, { passive: false });
-    this.domElement.addEventListener('touchend', () => this.onUp());
+    this.domElement.addEventListener('touchend', (e) => {
+      if (this.lastTouchCount === 2 && e.touches.length < 2) {
+        this.lastTouchCount = e.touches.length;
+        return;
+      }
+      this.lastTouchCount = e.touches.length;
+      this.onUp();
+    });
   }
 
   hitTestSphere(event) {
@@ -875,9 +925,43 @@ class InteractionController {
   }
 
   onUp() {
+    // Tap detection for touch devices — emulate click if no drag
+    if (isMobile && !this.hasDragged && this.startMouse.x !== 0) {
+      this._handleTap(this.startMouse);
+    }
     this.isRotatingSphere = false;
     this.activeSphere = null;
     this.isPanning = false;
+  }
+
+  _handleTap(coords) {
+    const rect = this.domElement.getBoundingClientRect();
+    const mx = ((coords.x - rect.left) / rect.width) * 2 - 1;
+    const my = -((coords.y - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
+
+    if (isDetailView) {
+      const selectedObjects = sphereMeshGroups[selectedCreatorIndex].children.flatMap(c => c.children || [c]);
+      const intersects = raycaster.intersectObjects(selectedObjects, true);
+      const hit = findFrontFacingPanel(intersects);
+      if (hit) {
+        updateDetailProject(hit.panel);
+      } else {
+        returnToOverview();
+      }
+      return;
+    }
+
+    const allObjects = sphereMeshGroups.flatMap(sg => sg.children.flatMap(c => c.children || [c]));
+    const intersects = raycaster.intersectObjects(allObjects, true);
+    const hit = findFrontFacingPanel(intersects);
+    if (hit) {
+      // Touch highlight feedback
+      gsap.to(hit.panel.scale, { x: 1.1, y: 1.1, z: 1.1, duration: 0.15, ease: 'power2.out',
+        onComplete: () => gsap.to(hit.panel.scale, { x: 1, y: 1, z: 1, duration: 0.15 })
+      });
+      openDetailView(hit.panel);
+    }
   }
 
   update() {
@@ -1036,10 +1120,17 @@ renderer.domElement.addEventListener('mousemove', onMouseMoveHover);
 // ============================================================
 // DETAIL VIEW
 // ============================================================
-// LEFT: Creator info panel
+// LEFT / BOTTOM: Creator info panel
 const creatorInfoPanel = document.createElement('div');
 creatorInfoPanel.id = 'creator-info-panel';
-creatorInfoPanel.style.cssText = `
+creatorInfoPanel.style.cssText = isMobile ? `
+  position: fixed; left: 20px; bottom: 100px; right: 20px;
+  padding: 0;
+  z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.5s ease;
+  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  text-align: center;
+` : `
   position: fixed; left: 60px; top: 50%; transform: translateY(-50%);
   width: 280px; padding: 0;
   z-index: 100; opacity: 0; pointer-events: none;
@@ -1047,15 +1138,24 @@ creatorInfoPanel.style.cssText = `
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
 `;
 creatorInfoPanel.innerHTML = `
-  <div style="font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 12px;" id="detail-creator-name"></div>
-  <div style="font-size: 14px; color: #666; line-height: 1.6;">создает ии-ролики и ии-фотографии красиво</div>
+  <div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px;" id="detail-creator-name"></div>
+  <div style="font-size: ${isMobile ? '12' : '14'}px; color: #666; line-height: 1.6;">создает ии-ролики и ии-фотографии красиво</div>
 `;
 document.body.appendChild(creatorInfoPanel);
 
-// RIGHT: Project info panel
+// RIGHT / BOTTOM: Project info panel
 const projectInfoPanel = document.createElement('div');
 projectInfoPanel.id = 'project-info-panel';
-projectInfoPanel.style.cssText = `
+projectInfoPanel.style.cssText = isMobile ? `
+  position: fixed; left: 20px; bottom: 20px; right: 20px;
+  padding: 20px 24px;
+  background: rgba(255,255,255,0.92); backdrop-filter: blur(20px);
+  border-radius: 16px; z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.5s ease;
+  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+  display: flex; align-items: center; justify-content: space-between;
+` : `
   position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
   width: 280px; padding: 40px;
   background: rgba(255,255,255,0.92); backdrop-filter: blur(20px);
@@ -1064,7 +1164,16 @@ projectInfoPanel.style.cssText = `
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
 `;
-projectInfoPanel.innerHTML = `
+projectInfoPanel.innerHTML = isMobile ? `
+  <div>
+    <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 4px;">Проект</div>
+    <div style="font-size: 20px; font-weight: 600; color: #1a1a1a;" id="detail-project-name"></div>
+  </div>
+  <button id="detail-close" style="
+    background: #1a1a1a; color: white; border: none; padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; cursor: pointer; font-family: inherit; letter-spacing: 1px;
+  ">Close</button>
+` : `
   <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 8px;">Проект</div>
   <div style="font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 24px;" id="detail-project-name"></div>
   <button id="detail-close" style="
@@ -1101,8 +1210,8 @@ function openDetailView(panel) {
 
   gsap.to(camera.position, {
     x: targetPos.x,
-    y: targetPos.y,
-    z: 12,
+    y: isMobile ? targetPos.y + 1.5 : targetPos.y,
+    z: isMobile ? 9 : 12,
     duration: 1.0,
     ease: 'power3.inOut'
   });
