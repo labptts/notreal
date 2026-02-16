@@ -1354,28 +1354,25 @@ function openDetailView(panel) {
     ease: 'power3.inOut'
   });
 
-  // Hide non-selected spheres completely
+  // Hide non-selected spheres — fade all materials uniformly + scale down
   creatorGroups.forEach((g, i) => {
     if (i !== selectedCreatorIndex) {
-      gsap.to(g.position, { z: -8, duration: 0.8, ease: 'power2.in', onComplete: () => {
+      // Scale down and fade out together
+      gsap.to(g.scale, { x: 0.6, y: 0.6, z: 0.6, duration: 0.7, ease: 'power2.in' });
+      gsap.to(g.position, { z: -5, duration: 0.7, ease: 'power2.in', onComplete: () => {
         g.visible = false;
       }});
-      // Immediately start fading
-      sphereMeshGroups[i].children.forEach(child => {
-        if (child.children) {
-          child.children.forEach(m => {
-            if (m.material && m.material.transparent !== undefined) {
-              m.material.transparent = true;
-              gsap.to(m.material, { opacity: 0, duration: 0.5 });
-            }
-          });
+      // Fade ALL materials in the sphere group uniformly
+      const fadeAll = (obj) => {
+        if (obj.material) {
+          obj.material.transparent = true;
+          gsap.to(obj.material, { opacity: 0, duration: 0.6, ease: 'power2.in' });
         }
-        if (child.material) {
-          child.material.transparent = true;
-          gsap.to(child.material, { opacity: 0, duration: 0.5 });
-        }
-      });
-      // nameLabels hidden via single label element
+        if (obj.children) obj.children.forEach(fadeAll);
+      };
+      fadeAll(sphereMeshGroups[i]);
+      // Also fade inner glow sphere
+      gsap.to(innerSpheres[i].material, { opacity: 0, duration: 0.6, ease: 'power2.in' });
     }
   });
 
@@ -1452,37 +1449,26 @@ function returnToOverview() {
 
   creatorGroups.forEach((g, i) => {
     g.visible = true;
+    gsap.to(g.scale, { x: 1, y: 1, z: 1, duration: 0.8, ease: 'power2.out' });
     gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
-    // Reset all panel scales and materials
-    sphereMeshGroups[i].children.forEach(child => {
-      // Skip inner glow sphere — reset it to hidden
-      if (child.userData && child.userData.isGlowCore) {
-        gsap.to(child.material, { opacity: 0, duration: 0.3 });
-        return;
+    // Restore all materials uniformly
+    const restoreAll = (obj) => {
+      if (obj.material) {
+        // Inner glow core should be hidden by default
+        if (obj.userData && obj.userData.isGlowCore) {
+          gsap.to(obj.material, { opacity: 0, duration: 0.3 });
+        } else {
+          obj.material.transparent = true;
+          gsap.to(obj.material, { opacity: 1, duration: 0.7, ease: 'power2.out' });
+        }
       }
-      // Skip glass overlay
-      if (child.userData && child.userData.isGlassOverlay) {
-        gsap.to(child.material, { opacity: 1, duration: 0.6 });
-        return;
+      // Reset panel scales
+      if (allPanels.includes(obj)) {
+        gsap.to(obj.scale, { x: 1, y: 1, z: 1, duration: 0.3 });
       }
-      // Reset panels
-      if (allPanels.includes(child)) {
-        gsap.to(child.scale, { x: 1, y: 1, z: 1, duration: 0.3 });
-      }
-      if (child.children) {
-        child.children.forEach(m => {
-          if (m.material) {
-            m.material.transparent = true;
-            gsap.to(m.material, { opacity: 1, duration: 0.6 });
-          }
-        });
-      }
-      if (child.material) {
-        child.material.transparent = true;
-        gsap.to(child.material, { opacity: 1, duration: 0.6 });
-      }
-    });
-    // Carousel updateNameLabels will handle label visibility
+      if (obj.children) obj.children.forEach(restoreAll);
+    };
+    restoreAll(sphereMeshGroups[i]);
   });
 
   const instr = document.getElementById('instructions');
@@ -1690,9 +1676,9 @@ let noiseImageData = null;
 let noiseFrame = 0;
 
 function generateNoiseTexture(w, h) {
-  noiseCanvas.width = Math.ceil(w / 2);  // half-res for perf
-  noiseCanvas.height = Math.ceil(h / 2);
-  noiseImageData = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
+  noiseCanvas.width = w;
+  noiseCanvas.height = h;
+  noiseImageData = noiseCtx.createImageData(w, h);
 }
 
 function updateNoise() {
@@ -1700,11 +1686,11 @@ function updateNoise() {
   const d = noiseImageData.data;
   const len = d.length;
   for (let i = 0; i < len; i += 4) {
-    const v = (Math.random() * 50) | 0; // noise intensity 0-50
+    const v = (Math.random() * 30) | 0; // subtle noise
     d[i] = v;
     d[i + 1] = v;
     d[i + 2] = v;
-    d[i + 3] = 40; // semi-transparent noise
+    d[i + 3] = 22; // very subtle transparency
   }
   noiseCtx.putImageData(noiseImageData, 0, 0);
 }
@@ -1748,7 +1734,7 @@ function drawMorphBlob(t) {
 
   // --- Composite onto main blob canvas with heavy blur ---
   blobCtx.clearRect(0, 0, w, h);
-  blobCtx.filter = 'blur(80px)';
+  blobCtx.filter = 'blur(40px)';
   blobCtx.drawImage(blobShapeCanvas, 0, 0);
   blobCtx.filter = 'none';
 
