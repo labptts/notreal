@@ -53,7 +53,7 @@ function setCursorHover(isHover) {
 // SCENE SETUP — white background
 // ============================================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xffffff);
+scene.background = null; // transparent — so blob background canvas shows through
 
 // Fog disabled for sharper visuals
 // scene.fog = new THREE.FogExp2(0xffffff, 0.004);
@@ -1021,7 +1021,7 @@ class InteractionController {
   }
 
   onUp() {
-    // Snap carousel to nearest sphere
+    // Snap carousel to nearest sphere (continuous, no rewind)
     if (this.isCarouselSwiping) {
       // Apply inertia then snap
       const inertiaAngle = carouselAngle + this.carouselSwipeVelocity * 8;
@@ -1224,7 +1224,7 @@ renderer.domElement.addEventListener('mousemove', onMouseMoveHover);
 // ============================================================
 function navigateCarousel(direction) {
   carouselCurrentIndex = ((carouselCurrentIndex + direction) % creators.length + creators.length) % creators.length;
-  carouselTargetAngle = carouselCurrentIndex * carouselAnglePerItem;
+  carouselTargetAngle += direction * carouselAnglePerItem;
 }
 
 if (!isMobile) {
@@ -1403,114 +1403,11 @@ function openDetailView(panel) {
 // Emissive border meshes for selected panel highlight
 const panelBorders = new Map(); // panel -> border mesh
 
-function createPanelBorder(panel) {
-  const pi = panel.userData.projectIndex;
-  const config = panelLayout[pi];
-  const borderGroup = new THREE.Group();
-  const borderR = sphereRadius + 0.04;
-  const borderThickness = 0.07;
-  const segs = 48;
-  const borderMat = new THREE.MeshBasicMaterial({
-    color: 0xaaccff,
-    transparent: true,
-    opacity: 0,
-    side: THREE.DoubleSide,
-    depthTest: false,
-    blending: THREE.AdditiveBlending,
-  });
-  borderGroup.renderOrder = 999;
-
-  // Top border strip
-  const topGeo = new THREE.BufferGeometry();
-  const tv = [], tn = [], ti = [];
-  const phiT = config.phiStart;
-  for (let x = 0; x <= segs; x++) {
-    const u = x / segs;
-    const theta = config.thetaStart + u * config.thetaLength;
-    const sp = Math.sin(phiT), cp = Math.cos(phiT), ct = Math.cos(theta), st = Math.sin(theta);
-    tv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
-    tv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
-    tn.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
-  }
-  for (let x = 0; x < segs; x++) { const a = x*2; ti.push(a,a+2,a+1, a+1,a+2,a+3); }
-  topGeo.setAttribute('position', new THREE.Float32BufferAttribute(tv, 3));
-  topGeo.setAttribute('normal', new THREE.Float32BufferAttribute(tn, 3));
-  topGeo.setIndex(ti);
-  borderGroup.add(new THREE.Mesh(topGeo, borderMat));
-
-  // Bottom border strip
-  const botGeo = new THREE.BufferGeometry();
-  const bv = [], bn = [], bi = [];
-  const phiB = config.phiStart + config.phiLength;
-  for (let x = 0; x <= segs; x++) {
-    const u = x / segs;
-    const theta = config.thetaStart + u * config.thetaLength;
-    const sp = Math.sin(phiB), cp = Math.cos(phiB), ct = Math.cos(theta), st = Math.sin(theta);
-    bv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
-    bv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
-    bn.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
-  }
-  for (let x = 0; x < segs; x++) { const a = x*2; bi.push(a,a+1,a+2, a+1,a+3,a+2); }
-  botGeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3));
-  botGeo.setAttribute('normal', new THREE.Float32BufferAttribute(bn, 3));
-  botGeo.setIndex(bi);
-  borderGroup.add(new THREE.Mesh(botGeo, borderMat));
-
-  // Left border strip
-  const leftGeo = new THREE.BufferGeometry();
-  const lv = [], ln = [], li = [];
-  const thetaL = config.thetaStart;
-  for (let y = 0; y <= segs; y++) {
-    const v = y / segs;
-    const phi = config.phiStart + v * config.phiLength;
-    const sp = Math.sin(phi), cp = Math.cos(phi), ct = Math.cos(thetaL), st = Math.sin(thetaL);
-    lv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
-    lv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
-    ln.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
-  }
-  for (let y = 0; y < segs; y++) { const a = y*2; li.push(a,a+1,a+2, a+1,a+3,a+2); }
-  leftGeo.setAttribute('position', new THREE.Float32BufferAttribute(lv, 3));
-  leftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(ln, 3));
-  leftGeo.setIndex(li);
-  borderGroup.add(new THREE.Mesh(leftGeo, borderMat));
-
-  // Right border strip
-  const rightGeo = new THREE.BufferGeometry();
-  const rv = [], rn = [], ri = [];
-  const thetaR = config.thetaStart + config.thetaLength;
-  for (let y = 0; y <= segs; y++) {
-    const v = y / segs;
-    const phi = config.phiStart + v * config.phiLength;
-    const sp = Math.sin(phi), cp = Math.cos(phi), ct = Math.cos(thetaR), st = Math.sin(thetaR);
-    rv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
-    rv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
-    rn.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
-  }
-  for (let y = 0; y < segs; y++) { const a = y*2; ri.push(a,a+2,a+1, a+1,a+2,a+3); }
-  rightGeo.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3));
-  rightGeo.setAttribute('normal', new THREE.Float32BufferAttribute(rn, 3));
-  rightGeo.setIndex(ri);
-  borderGroup.add(new THREE.Mesh(rightGeo, borderMat));
-
-  borderGroup.userData.borderMat = borderMat;
-  return borderGroup;
-}
-
 function highlightPanel(panel) {
   gsap.to(panel.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.3, ease: 'power2.out' });
   // Show white inner sphere glow
   const ci = panel.userData.creatorIndex;
   gsap.to(innerSpheres[ci].material, { opacity: 0.85, duration: 0.3 });
-
-  // Show emissive border
-  let border = panelBorders.get(panel);
-  if (!border) {
-    border = createPanelBorder(panel);
-    sphereMeshGroups[ci].add(border);
-    panelBorders.set(panel, border);
-  }
-  border.visible = true;
-  gsap.to(border.userData.borderMat, { opacity: 0.9, duration: 0.3, ease: 'power2.out' });
 }
 
 function unhighlightPanel(panel) {
@@ -1518,12 +1415,6 @@ function unhighlightPanel(panel) {
   // Hide white inner sphere glow
   const ci = panel.userData.creatorIndex;
   gsap.to(innerSpheres[ci].material, { opacity: 0, duration: 0.3 });
-
-  // Hide emissive border
-  const border = panelBorders.get(panel);
-  if (border) {
-    gsap.to(border.userData.borderMat, { opacity: 0, duration: 0.3, ease: 'power2.out', onComplete: () => { border.visible = false; } });
-  }
 }
 
 function updateDetailProject(panel) {
