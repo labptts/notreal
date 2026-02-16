@@ -67,7 +67,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.4;
 document.querySelector('#app').appendChild(renderer.domElement);
 
 // ============================================================
@@ -465,12 +465,12 @@ creators.forEach((creator, ci) => {
     const frontMat = new THREE.MeshPhysicalMaterial({
       map: panelImage,
       side: THREE.FrontSide,
-      roughness: isMobile ? 0.02 : 0.05,
-      metalness: isMobile ? 0.05 : 0.02,
+      roughness: 0.01,
+      metalness: 0.05,
       clearcoat: 1.0,
-      clearcoatRoughness: isMobile ? 0.005 : 0.02,
-      envMapIntensity: isMobile ? 0.7 : 0.4,
-      reflectivity: isMobile ? 0.5 : 0.3,
+      clearcoatRoughness: 0.005,
+      envMapIntensity: 0.9,
+      reflectivity: 0.5,
       envMapRotation: new THREE.Euler(0, ci * Math.PI * 0.4, 0),
       transparent: true,
       opacity: 1
@@ -612,35 +612,29 @@ creators.forEach((creator, ci) => {
     allPanels.push(cardGroup);
   });
 
-  // Glass refraction overlay sphere
+  // Glass refraction overlay sphere — minimal, no haze
   const glassGeo = new THREE.SphereGeometry(sphereRadius + 0.025, 64, 64);
   const glassMat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
-    transmission: 0.98,
-    thickness: 0.2,
-    ior: 1.3,
-    roughness: 0.01,
+    transmission: 0.15,
+    thickness: 0.05,
+    ior: 1.1,
+    roughness: 0.005,
     metalness: 0.0,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.01,
-    envMapIntensity: 0.3,
-    reflectivity: 0.4,
+    clearcoatRoughness: 0.005,
+    envMapIntensity: 0.2,
+    reflectivity: 0.3,
     transparent: true,
-    opacity: 1.0,
+    opacity: 0.15,
     side: THREE.FrontSide,
     depthWrite: false,
-    attenuationDistance: 50.0,
+    attenuationDistance: 100.0,
   });
   // Rotate env reflections per sphere for unique highlights
   glassMat.envMapRotation = new THREE.Euler(0, ci * Math.PI * 0.4, 0);
   const glassMesh = new THREE.Mesh(glassGeo, glassMat);
   glassMesh.userData.isGlassOverlay = true;
-  // On mobile, hide glass overlay for crisp glossy look (no haze)
-  if (isMobile) {
-    glassMat.transmission = 0;
-    glassMat.opacity = 0;
-    glassMesh.visible = false;
-  }
   sphereGroup.add(glassMesh);
   glassMeshes.push(glassMesh);
 
@@ -811,36 +805,38 @@ const nameLabels = creators.map((creator, i) => {
 
 function updateNameLabels() {
   creatorGroups.forEach((group, i) => {
-    // Project center of sphere to screen
-    const centerWorld = new THREE.Vector3(0, 0, 0);
-    group.localToWorld(centerWorld);
-    centerWorld.project(camera);
-    const cx = (centerWorld.x * 0.5 + 0.5) * window.innerWidth;
+    // For carousel: always center the label horizontally on screen
+    // Only show the label for the center sphere, fade others
+    const angle = carouselAngle + i * carouselAnglePerItem;
+    const distFromFront = Math.abs(Math.sin(angle));
+    const isCenter = distFromFront < 0.3;
 
-    // Project bottom of sphere to screen
+    // Fixed center position on screen
+    const cx = window.innerWidth / 2;
+
+    // Project bottom of the center sphere to get vertical position
     const bottomWorld = new THREE.Vector3(0, -sphereRadius, 0);
     group.localToWorld(bottomWorld);
     bottomWorld.project(camera);
     const by = (-bottomWorld.y * 0.5 + 0.5) * window.innerHeight;
 
-    // Fixed pixel offset below the sphere bottom
     const pixelOffset = isMobile ? 12 : 18;
     nameLabels[i].style.left = cx + 'px';
     nameLabels[i].style.top = (by + pixelOffset) + 'px';
-    nameLabels[i].style.display = centerWorld.z > 1 ? 'none' : 'block';
 
     if (!isDetailView) {
-      // Fade out non-center spheres' labels
-      const angle = carouselAngle + i * carouselAnglePerItem;
-      const distFromFront = Math.abs(Math.sin(angle));
-      // Only show label for center sphere
-      if (distFromFront < 0.3) {
+      if (isCenter) {
         nameLabels[i].style.opacity = '0.85';
         nameLabels[i].style.filter = 'blur(0px)';
+        nameLabels[i].style.display = 'block';
       } else {
         nameLabels[i].style.opacity = '0';
         nameLabels[i].style.filter = 'blur(4px)';
+        // Hide completely when far from center to avoid stacking
+        nameLabels[i].style.display = distFromFront > 0.6 ? 'none' : 'block';
       }
+    } else {
+      nameLabels[i].style.display = 'none';
     }
   });
 }
@@ -1228,6 +1224,48 @@ function unhoverPanel(panel) {
 renderer.domElement.addEventListener('mousemove', onMouseMoveHover);
 
 // ============================================================
+// CAROUSEL ARROW BUTTONS (desktop only)
+// ============================================================
+function navigateCarousel(direction) {
+  carouselCurrentIndex = ((carouselCurrentIndex + direction) % creators.length + creators.length) % creators.length;
+  carouselTargetAngle = carouselCurrentIndex * carouselAnglePerItem;
+}
+
+if (!isMobile) {
+  const arrowStyle = `
+    position: fixed; top: 50%; z-index: 50;
+    width: 48px; height: 48px; border: none; background: rgba(0,0,0,0.04);
+    border-radius: 50%; cursor: none; display: flex; align-items: center;
+    justify-content: center; transition: background 0.2s, transform 0.2s;
+    backdrop-filter: blur(8px); pointer-events: auto;
+  `;
+  const arrowLeft = document.createElement('button');
+  arrowLeft.id = 'carousel-arrow-left';
+  arrowLeft.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+  arrowLeft.style.cssText = arrowStyle + 'left: 24px; transform: translateY(-50%);';
+  arrowLeft.addEventListener('click', () => navigateCarousel(-1));
+  arrowLeft.addEventListener('mouseenter', () => { arrowLeft.style.background = 'rgba(0,0,0,0.1)'; arrowLeft.style.transform = 'translateY(-50%) scale(1.1)'; setCursorHover(true); });
+  arrowLeft.addEventListener('mouseleave', () => { arrowLeft.style.background = 'rgba(0,0,0,0.04)'; arrowLeft.style.transform = 'translateY(-50%) scale(1)'; setCursorHover(false); });
+  document.body.appendChild(arrowLeft);
+
+  const arrowRight = document.createElement('button');
+  arrowRight.id = 'carousel-arrow-right';
+  arrowRight.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+  arrowRight.style.cssText = arrowStyle + 'right: 24px; transform: translateY(-50%);';
+  arrowRight.addEventListener('click', () => navigateCarousel(1));
+  arrowRight.addEventListener('mouseenter', () => { arrowRight.style.background = 'rgba(0,0,0,0.1)'; arrowRight.style.transform = 'translateY(-50%) scale(1.1)'; setCursorHover(true); });
+  arrowRight.addEventListener('mouseleave', () => { arrowRight.style.background = 'rgba(0,0,0,0.04)'; arrowRight.style.transform = 'translateY(-50%) scale(1)'; setCursorHover(false); });
+  document.body.appendChild(arrowRight);
+
+  // Also support keyboard arrows
+  document.addEventListener('keydown', (e) => {
+    if (isDetailView) return;
+    if (e.key === 'ArrowLeft') navigateCarousel(-1);
+    if (e.key === 'ArrowRight') navigateCarousel(1);
+  });
+}
+
+// ============================================================
 // DETAIL VIEW
 // ============================================================
 // LEFT / BOTTOM: Creator info panel
@@ -1358,6 +1396,106 @@ function openDetailView(panel) {
 
   const instr = document.getElementById('instructions');
   if (instr) instr.style.opacity = '0';
+
+  // Hide carousel arrows in detail view
+  const arrowL = document.getElementById('carousel-arrow-left');
+  const arrowR = document.getElementById('carousel-arrow-right');
+  if (arrowL) arrowL.style.opacity = '0';
+  if (arrowR) arrowR.style.opacity = '0';
+}
+
+// Emissive border meshes for selected panel highlight
+const panelBorders = new Map(); // panel -> border mesh
+
+function createPanelBorder(panel) {
+  const pi = panel.userData.projectIndex;
+  const config = panelLayout[pi];
+  const borderGroup = new THREE.Group();
+  const borderR = sphereRadius + 0.03;
+  const borderThickness = 0.025;
+  const segs = 48;
+  const borderMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+    depthTest: true,
+  });
+
+  // Top border strip
+  const topGeo = new THREE.BufferGeometry();
+  const tv = [], tn = [], ti = [];
+  const phiT = config.phiStart;
+  for (let x = 0; x <= segs; x++) {
+    const u = x / segs;
+    const theta = config.thetaStart + u * config.thetaLength;
+    const sp = Math.sin(phiT), cp = Math.cos(phiT), ct = Math.cos(theta), st = Math.sin(theta);
+    tv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
+    tv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
+    tn.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
+  }
+  for (let x = 0; x < segs; x++) { const a = x*2; ti.push(a,a+2,a+1, a+1,a+2,a+3); }
+  topGeo.setAttribute('position', new THREE.Float32BufferAttribute(tv, 3));
+  topGeo.setAttribute('normal', new THREE.Float32BufferAttribute(tn, 3));
+  topGeo.setIndex(ti);
+  borderGroup.add(new THREE.Mesh(topGeo, borderMat));
+
+  // Bottom border strip
+  const botGeo = new THREE.BufferGeometry();
+  const bv = [], bn = [], bi = [];
+  const phiB = config.phiStart + config.phiLength;
+  for (let x = 0; x <= segs; x++) {
+    const u = x / segs;
+    const theta = config.thetaStart + u * config.thetaLength;
+    const sp = Math.sin(phiB), cp = Math.cos(phiB), ct = Math.cos(theta), st = Math.sin(theta);
+    bv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
+    bv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
+    bn.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
+  }
+  for (let x = 0; x < segs; x++) { const a = x*2; bi.push(a,a+1,a+2, a+1,a+3,a+2); }
+  botGeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3));
+  botGeo.setAttribute('normal', new THREE.Float32BufferAttribute(bn, 3));
+  botGeo.setIndex(bi);
+  borderGroup.add(new THREE.Mesh(botGeo, borderMat));
+
+  // Left border strip
+  const leftGeo = new THREE.BufferGeometry();
+  const lv = [], ln = [], li = [];
+  const thetaL = config.thetaStart;
+  for (let y = 0; y <= segs; y++) {
+    const v = y / segs;
+    const phi = config.phiStart + v * config.phiLength;
+    const sp = Math.sin(phi), cp = Math.cos(phi), ct = Math.cos(thetaL), st = Math.sin(thetaL);
+    lv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
+    lv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
+    ln.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
+  }
+  for (let y = 0; y < segs; y++) { const a = y*2; li.push(a,a+1,a+2, a+1,a+3,a+2); }
+  leftGeo.setAttribute('position', new THREE.Float32BufferAttribute(lv, 3));
+  leftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(ln, 3));
+  leftGeo.setIndex(li);
+  borderGroup.add(new THREE.Mesh(leftGeo, borderMat));
+
+  // Right border strip
+  const rightGeo = new THREE.BufferGeometry();
+  const rv = [], rn = [], ri = [];
+  const thetaR = config.thetaStart + config.thetaLength;
+  for (let y = 0; y <= segs; y++) {
+    const v = y / segs;
+    const phi = config.phiStart + v * config.phiLength;
+    const sp = Math.sin(phi), cp = Math.cos(phi), ct = Math.cos(thetaR), st = Math.sin(thetaR);
+    rv.push(borderR * sp * ct, borderR * cp, borderR * sp * st);
+    rv.push((borderR + borderThickness) * sp * ct, (borderR + borderThickness) * cp, (borderR + borderThickness) * sp * st);
+    rn.push(sp * ct, cp, sp * st, sp * ct, cp, sp * st);
+  }
+  for (let y = 0; y < segs; y++) { const a = y*2; ri.push(a,a+2,a+1, a+1,a+2,a+3); }
+  rightGeo.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3));
+  rightGeo.setAttribute('normal', new THREE.Float32BufferAttribute(rn, 3));
+  rightGeo.setIndex(ri);
+  borderGroup.add(new THREE.Mesh(rightGeo, borderMat));
+
+  borderGroup.userData.borderMat = borderMat;
+  return borderGroup;
 }
 
 function highlightPanel(panel) {
@@ -1365,6 +1503,16 @@ function highlightPanel(panel) {
   // Show white inner sphere glow
   const ci = panel.userData.creatorIndex;
   gsap.to(innerSpheres[ci].material, { opacity: 0.85, duration: 0.3 });
+
+  // Show emissive border
+  let border = panelBorders.get(panel);
+  if (!border) {
+    border = createPanelBorder(panel);
+    sphereMeshGroups[ci].add(border);
+    panelBorders.set(panel, border);
+  }
+  border.visible = true;
+  gsap.to(border.userData.borderMat, { opacity: 0.9, duration: 0.3, ease: 'power2.out' });
 }
 
 function unhighlightPanel(panel) {
@@ -1372,6 +1520,12 @@ function unhighlightPanel(panel) {
   // Hide white inner sphere glow
   const ci = panel.userData.creatorIndex;
   gsap.to(innerSpheres[ci].material, { opacity: 0, duration: 0.3 });
+
+  // Hide emissive border
+  const border = panelBorders.get(panel);
+  if (border) {
+    gsap.to(border.userData.borderMat, { opacity: 0, duration: 0.3, ease: 'power2.out', onComplete: () => { border.visible = false; } });
+  }
 }
 
 function updateDetailProject(panel) {
@@ -1444,6 +1598,12 @@ function returnToOverview() {
 
   const instr = document.getElementById('instructions');
   if (instr) instr.style.opacity = '0.8';
+
+  // Show carousel arrows again
+  const arrowL = document.getElementById('carousel-arrow-left');
+  const arrowR = document.getElementById('carousel-arrow-right');
+  if (arrowL) arrowL.style.opacity = '1';
+  if (arrowR) arrowR.style.opacity = '1';
 
   selectedPanel = null;
   selectedCreatorIndex = -1;
@@ -1623,9 +1783,9 @@ function animate() {
       const angle = carouselAngle + i * carouselAnglePerItem;
       const cosAngle = Math.cos(angle);
       // cosAngle: 1 = front, 0 = side, -1 = back
-      // Mobile: central sphere is larger (up to 1.35)
-      const maxScale = isMobile ? 1.35 : 1.0;
-      const scaleFactor = THREE.MathUtils.clamp(0.4 + cosAngle * 0.6, 0.15, maxScale);
+      // Central sphere is prominently larger
+      const maxScale = isMobile ? 1.5 : 1.3;
+      const scaleFactor = THREE.MathUtils.clamp(0.3 + cosAngle * 1.2, 0.15, maxScale);
       const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
       group.scale.setScalar(scaleFactor * breathe);
 
