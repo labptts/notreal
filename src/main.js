@@ -778,7 +778,7 @@ nameLabelEl.style.cssText = `
   left: 50%;
   bottom: ${isMobile ? '28%' : '25%'};
   transform: translateX(-50%);
-  color: #222;
+  color: #ffffff;
   font-size: ${isMobile ? '10' : '13'}px;
   font-weight: 500;
   letter-spacing: ${isMobile ? '1' : '2'}px;
@@ -1357,22 +1357,25 @@ function openDetailView(panel) {
   // Hide non-selected spheres — fade all materials uniformly + scale down
   creatorGroups.forEach((g, i) => {
     if (i !== selectedCreatorIndex) {
-      // Scale down and fade out together
+      // Immediately hide the inner white glow sphere so it never shows through
+      innerSpheres[i].material.opacity = 0;
+      innerSpheres[i].visible = false;
+
+      // Scale down and move back
       gsap.to(g.scale, { x: 0.6, y: 0.6, z: 0.6, duration: 0.7, ease: 'power2.in' });
       gsap.to(g.position, { z: -5, duration: 0.7, ease: 'power2.in', onComplete: () => {
         g.visible = false;
       }});
-      // Fade ALL materials in the sphere group uniformly
-      const fadeAll = (obj) => {
+      // Fade panels and glass only (skip inner glow — already hidden)
+      const fadePanels = (obj) => {
+        if (obj.userData && obj.userData.isGlowCore) return; // skip inner sphere
         if (obj.material) {
           obj.material.transparent = true;
           gsap.to(obj.material, { opacity: 0, duration: 0.6, ease: 'power2.in' });
         }
-        if (obj.children) obj.children.forEach(fadeAll);
+        if (obj.children) obj.children.forEach(fadePanels);
       };
-      fadeAll(sphereMeshGroups[i]);
-      // Also fade inner glow sphere
-      gsap.to(innerSpheres[i].material, { opacity: 0, duration: 0.6, ease: 'power2.in' });
+      fadePanels(sphereMeshGroups[i]);
     }
   });
 
@@ -1449,6 +1452,9 @@ function returnToOverview() {
 
   creatorGroups.forEach((g, i) => {
     g.visible = true;
+    // Restore inner sphere visibility (hidden during fade-out)
+    innerSpheres[i].visible = true;
+    innerSpheres[i].material.opacity = 0; // but keep it transparent (glow only on hover)
     gsap.to(g.scale, { x: 1, y: 1, z: 1, duration: 0.8, ease: 'power2.out' });
     gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
     // Restore all materials uniformly
@@ -1690,7 +1696,7 @@ function updateNoise() {
     d[i] = v;
     d[i + 1] = v;
     d[i + 2] = v;
-    d[i + 3] = 22; // very subtle transparency
+    d[i + 3] = 45; // stronger noise visibility
   }
   noiseCtx.putImageData(noiseImageData, 0, 0);
 }
@@ -1734,7 +1740,7 @@ function drawMorphBlob(t) {
 
   // --- Composite onto main blob canvas with heavy blur ---
   blobCtx.clearRect(0, 0, w, h);
-  blobCtx.filter = 'blur(40px)';
+  blobCtx.filter = 'blur(60px)';
   blobCtx.drawImage(blobShapeCanvas, 0, 0);
   blobCtx.filter = 'none';
 
