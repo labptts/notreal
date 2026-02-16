@@ -393,6 +393,105 @@ creators.forEach((creator, ci) => {
     const backPanel = new THREE.Mesh(backGeo, backMat);
     cardGroup.add(backPanel);
 
+    // Side walls for thickness when panel pops out
+    const edgeThickness = 0.08;
+    const edgeMat = new THREE.MeshPhysicalMaterial({
+      color: 0xe0e0e0,
+      side: THREE.DoubleSide,
+      roughness: 0.3,
+      metalness: 0.05
+    });
+    // Create edge strips along all 4 borders of the panel
+    const edgeSegs = 32;
+    // Top edge
+    const topEdgeGeo = new THREE.BufferGeometry();
+    const topVerts = [], topNorms = [], topIdx = [];
+    for (let x = 0; x <= edgeSegs; x++) {
+      const u = x / edgeSegs;
+      const theta = config.thetaStart + u * config.thetaLength;
+      const phi = config.phiStart;
+      const outerR = sphereRadius;
+      const innerR = sphereRadius - edgeThickness;
+      topVerts.push(outerR*Math.sin(phi)*Math.cos(theta), outerR*Math.cos(phi), outerR*Math.sin(phi)*Math.sin(theta));
+      topVerts.push(innerR*Math.sin(phi)*Math.cos(theta), innerR*Math.cos(phi), innerR*Math.sin(phi)*Math.sin(theta));
+      const n = new THREE.Vector3(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta)).normalize();
+      topNorms.push(n.x, n.y, n.z, n.x, n.y, n.z);
+    }
+    for (let x = 0; x < edgeSegs; x++) {
+      const a = x*2, b = a+1, c = a+2, d = a+3;
+      topIdx.push(a,c,b, b,c,d);
+    }
+    topEdgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(topVerts, 3));
+    topEdgeGeo.setAttribute('normal', new THREE.Float32BufferAttribute(topNorms, 3));
+    topEdgeGeo.setIndex(topIdx);
+    cardGroup.add(new THREE.Mesh(topEdgeGeo, edgeMat));
+    // Bottom edge
+    const botEdgeGeo = new THREE.BufferGeometry();
+    const botVerts = [], botNorms = [], botIdx = [];
+    for (let x = 0; x <= edgeSegs; x++) {
+      const u = x / edgeSegs;
+      const theta = config.thetaStart + u * config.thetaLength;
+      const phi = config.phiStart + config.phiLength;
+      const outerR = sphereRadius;
+      const innerR = sphereRadius - edgeThickness;
+      botVerts.push(outerR*Math.sin(phi)*Math.cos(theta), outerR*Math.cos(phi), outerR*Math.sin(phi)*Math.sin(theta));
+      botVerts.push(innerR*Math.sin(phi)*Math.cos(theta), innerR*Math.cos(phi), innerR*Math.sin(phi)*Math.sin(theta));
+      const n = new THREE.Vector3(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta)).normalize();
+      botNorms.push(n.x, n.y, n.z, n.x, n.y, n.z);
+    }
+    for (let x = 0; x < edgeSegs; x++) {
+      const a = x*2, b = a+1, c = a+2, d = a+3;
+      botIdx.push(a,b,c, b,d,c);
+    }
+    botEdgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(botVerts, 3));
+    botEdgeGeo.setAttribute('normal', new THREE.Float32BufferAttribute(botNorms, 3));
+    botEdgeGeo.setIndex(botIdx);
+    cardGroup.add(new THREE.Mesh(botEdgeGeo, edgeMat));
+    // Left edge
+    const leftEdgeGeo = new THREE.BufferGeometry();
+    const leftVerts = [], leftNorms = [], leftIdx = [];
+    for (let y = 0; y <= edgeSegs; y++) {
+      const v = y / edgeSegs;
+      const phi = config.phiStart + v * config.phiLength;
+      const theta = config.thetaStart;
+      const outerR = sphereRadius;
+      const innerR = sphereRadius - edgeThickness;
+      leftVerts.push(outerR*Math.sin(phi)*Math.cos(theta), outerR*Math.cos(phi), outerR*Math.sin(phi)*Math.sin(theta));
+      leftVerts.push(innerR*Math.sin(phi)*Math.cos(theta), innerR*Math.cos(phi), innerR*Math.sin(phi)*Math.sin(theta));
+      const n = new THREE.Vector3(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta)).normalize();
+      leftNorms.push(n.x, n.y, n.z, n.x, n.y, n.z);
+    }
+    for (let y = 0; y < edgeSegs; y++) {
+      const a = y*2, b = a+1, c = a+2, d = a+3;
+      leftIdx.push(a,b,c, b,d,c);
+    }
+    leftEdgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(leftVerts, 3));
+    leftEdgeGeo.setAttribute('normal', new THREE.Float32BufferAttribute(leftNorms, 3));
+    leftEdgeGeo.setIndex(leftIdx);
+    cardGroup.add(new THREE.Mesh(leftEdgeGeo, edgeMat));
+    // Right edge
+    const rightEdgeGeo = new THREE.BufferGeometry();
+    const rightVerts = [], rightNorms = [], rightIdx = [];
+    for (let y = 0; y <= edgeSegs; y++) {
+      const v = y / edgeSegs;
+      const phi = config.phiStart + v * config.phiLength;
+      const theta = config.thetaStart + config.thetaLength;
+      const outerR = sphereRadius;
+      const innerR = sphereRadius - edgeThickness;
+      rightVerts.push(outerR*Math.sin(phi)*Math.cos(theta), outerR*Math.cos(phi), outerR*Math.sin(phi)*Math.sin(theta));
+      rightVerts.push(innerR*Math.sin(phi)*Math.cos(theta), innerR*Math.cos(phi), innerR*Math.sin(phi)*Math.sin(theta));
+      const n = new THREE.Vector3(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta)).normalize();
+      rightNorms.push(n.x, n.y, n.z, n.x, n.y, n.z);
+    }
+    for (let y = 0; y < edgeSegs; y++) {
+      const a = y*2, b = a+1, c = a+2, d = a+3;
+      rightIdx.push(a,c,b, b,c,d);
+    }
+    rightEdgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(rightVerts, 3));
+    rightEdgeGeo.setAttribute('normal', new THREE.Float32BufferAttribute(rightNorms, 3));
+    rightEdgeGeo.setIndex(rightIdx);
+    cardGroup.add(new THREE.Mesh(rightEdgeGeo, edgeMat));
+
     cardGroup.userData = {
       creatorIndex: ci,
       projectIndex: pi,
@@ -861,19 +960,22 @@ function openDetailView(panel) {
   // Hide non-selected spheres completely
   creatorGroups.forEach((g, i) => {
     if (i !== selectedCreatorIndex) {
-      gsap.to(g.position, { z: -8, duration: 0.8, ease: 'power2.in' });
+      gsap.to(g.position, { z: -8, duration: 0.8, ease: 'power2.in', onComplete: () => {
+        g.visible = false;
+      }});
+      // Immediately start fading
       sphereMeshGroups[i].children.forEach(child => {
         if (child.children) {
           child.children.forEach(m => {
             if (m.material && m.material.transparent !== undefined) {
               m.material.transparent = true;
-              gsap.to(m.material, { opacity: 0, duration: 0.6 });
+              gsap.to(m.material, { opacity: 0, duration: 0.5 });
             }
           });
         }
         if (child.material) {
           child.material.transparent = true;
-          gsap.to(child.material, { opacity: 0, duration: 0.6 });
+          gsap.to(child.material, { opacity: 0, duration: 0.5 });
         }
       });
       nameLabels[i].style.opacity = '0';
@@ -945,6 +1047,7 @@ function returnToOverview() {
   });
 
   creatorGroups.forEach((g, i) => {
+    g.visible = true;
     gsap.to(g.position, { z: 0, duration: 0.8, ease: 'power2.out' });
     sphereMeshGroups[i].children.forEach(child => {
       if (child.children) {
