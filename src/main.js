@@ -1332,15 +1332,16 @@ document.body.appendChild(creatorInfoPanel);
 const projectInfoPanel = document.createElement('div');
 projectInfoPanel.id = 'project-info-panel';
 projectInfoPanel.style.cssText = isMobile ? `
-  position: fixed; left: 0; bottom: 0; right: 0;
-  max-height: 70vh; overflow-y: auto;
-  padding: 24px 20px;
+  position: fixed; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  padding: 0;
   background: rgba(255,255,255,0.08); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.12); border-bottom: none;
   border-radius: 20px 20px 0 0; z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   box-shadow: 0 -4px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
+  will-change: transform;
 ` : `
   position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
   width: 420px; max-height: 80vh; overflow-y: auto;
@@ -1353,6 +1354,137 @@ projectInfoPanel.style.cssText = isMobile ? `
   box-shadow: 0 8px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
 `;
 document.body.appendChild(projectInfoPanel);
+
+// ============================================================
+// MOBILE SWIPE SHEET LOGIC
+// ============================================================
+let sheetExpanded = true;
+let sheetCollapsedHeight = 72; // collapsed mini-bar height in px
+let sheetExpandedHeight = 0; // measured after content render
+let sheetDragging = false;
+let sheetDragStartY = 0;
+let sheetDragCurrentY = 0;
+let sheetTranslateY = 0; // 0 = expanded, positive = amount collapsed
+
+function getSheetExpandedHeight() {
+  if (!isMobile) return 0;
+  // Measure natural height, capped at 70vh
+  projectInfoPanel.style.transform = 'translateY(0)';
+  const natural = projectInfoPanel.scrollHeight;
+  return Math.min(natural, window.innerHeight * 0.7);
+}
+
+function setSheetPosition(translateY, animate) {
+  if (!isMobile) return;
+  const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
+  translateY = Math.max(0, Math.min(translateY, maxTranslate));
+  sheetTranslateY = translateY;
+  if (animate) {
+    projectInfoPanel.style.transition = 'opacity 0.5s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+  } else {
+    projectInfoPanel.style.transition = 'opacity 0.5s ease';
+  }
+  projectInfoPanel.style.transform = `translateY(${translateY}px)`;
+
+  // Toggle scrollability and content visibility
+  const content = document.getElementById('sheet-content');
+  const collapsed = document.getElementById('sheet-collapsed');
+  if (content && collapsed) {
+    if (translateY > (sheetExpandedHeight - sheetCollapsedHeight) * 0.5) {
+      // Collapsed state
+      content.style.opacity = '0';
+      content.style.pointerEvents = 'none';
+      collapsed.style.opacity = '1';
+      sheetExpanded = false;
+    } else {
+      // Expanded state
+      content.style.opacity = '1';
+      content.style.pointerEvents = 'auto';
+      collapsed.style.opacity = '0';
+      sheetExpanded = true;
+    }
+  }
+}
+
+function expandSheet() {
+  setSheetPosition(0, true);
+  sheetExpanded = true;
+}
+
+function collapseSheet() {
+  const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
+  setSheetPosition(maxTranslate, true);
+  sheetExpanded = false;
+}
+
+if (isMobile) {
+  projectInfoPanel.addEventListener('touchstart', (e) => {
+    // Only drag from the handle area (top 48px of visible panel)
+    const rect = projectInfoPanel.getBoundingClientRect();
+    const touchY = e.touches[0].clientY;
+    const relY = touchY - rect.top;
+    // Allow drag from handle (top part) — in expanded state top 48px, in collapsed always
+    if (sheetExpanded && relY > 56) return; // only drag from handle in expanded mode
+    sheetDragging = true;
+    sheetDragStartY = touchY;
+    sheetDragCurrentY = touchY;
+    projectInfoPanel.style.transition = 'opacity 0.5s ease'; // disable transform transition during drag
+  }, { passive: true });
+
+  projectInfoPanel.addEventListener('touchmove', (e) => {
+    if (!sheetDragging) return;
+    sheetDragCurrentY = e.touches[0].clientY;
+    const delta = sheetDragCurrentY - sheetDragStartY;
+    // In expanded state: drag down to collapse
+    // In collapsed state: drag up to expand
+    let newTranslate;
+    if (sheetExpanded) {
+      newTranslate = Math.max(0, delta); // only allow dragging down
+    } else {
+      const maxT = sheetExpandedHeight - sheetCollapsedHeight;
+      newTranslate = maxT + delta; // delta is negative when dragging up
+    }
+    const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
+    newTranslate = Math.max(0, Math.min(newTranslate, maxTranslate));
+    projectInfoPanel.style.transform = `translateY(${newTranslate}px)`;
+
+    // Live opacity transitions
+    const progress = newTranslate / maxTranslate; // 0=expanded, 1=collapsed
+    const content = document.getElementById('sheet-content');
+    const collapsed = document.getElementById('sheet-collapsed');
+    if (content) content.style.opacity = String(1 - progress);
+    if (collapsed) collapsed.style.opacity = String(progress);
+  }, { passive: true });
+
+  const sheetTouchEnd = () => {
+    if (!sheetDragging) return;
+    sheetDragging = false;
+    const delta = sheetDragCurrentY - sheetDragStartY;
+    const threshold = 60; // px needed to trigger state change
+    if (sheetExpanded) {
+      if (delta > threshold) {
+        collapseSheet();
+      } else {
+        expandSheet();
+      }
+    } else {
+      if (delta < -threshold) {
+        expandSheet();
+      } else {
+        collapseSheet();
+      }
+    }
+  };
+  projectInfoPanel.addEventListener('touchend', sheetTouchEnd);
+  projectInfoPanel.addEventListener('touchcancel', sheetTouchEnd);
+
+  // Tap on collapsed bar to expand
+  projectInfoPanel.addEventListener('click', (e) => {
+    if (!sheetExpanded && !sheetDragging) {
+      expandSheet();
+    }
+  });
+}
 
 // ============================================================
 // LIGHTBOX OVERLAY (for image projects)
@@ -1417,6 +1549,27 @@ function populateProjectPanel(project, creatorName) {
 
   let html = '';
 
+  if (isMobile) {
+    // --- DRAG HANDLE ---
+    html += `<div id="sheet-handle" style="padding: 12px 0 8px; cursor: grab; touch-action: none;">`;
+    html += `<div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(0,0,0,0.15); margin: 0 auto;"></div>`;
+    html += `</div>`;
+
+    // --- COLLAPSED MINI-BAR (shown when sheet is collapsed) ---
+    html += `<div id="sheet-collapsed" style="position: absolute; left: 0; right: 0; top: 0; padding: 20px 24px 16px; pointer-events: none; opacity: 0; transition: opacity 0.2s ease;">`;
+    html += `<div style="display: flex; align-items: center; justify-content: space-between;">`;
+    html += `<div>`;
+    if (project.client) html += `<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #888; margin-bottom: 2px;">${project.client}</div>`;
+    html += `<div style="font-size: 18px; font-weight: 600; color: #1a1a1a;">${project.name}</div>`;
+    html += `</div>`;
+    html += `<div style="font-size: 11px; color: #aaa; letter-spacing: 1px;">↑ swipe up</div>`;
+    html += `</div>`;
+    html += `</div>`;
+
+    // --- EXPANDABLE CONTENT ---
+    html += `<div id="sheet-content" style="padding: 0 20px 24px; overflow-y: auto; max-height: calc(70vh - 48px); transition: opacity 0.2s ease;">`;
+  }
+
   // On mobile: embed creator info at top of the sheet
   if (isMobile && creatorName) {
     html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(0,0,0,0.06);">`;
@@ -1471,7 +1624,23 @@ function populateProjectPanel(project, creatorName) {
     ">Close</button>
   `;
 
+  if (isMobile) {
+    html += `</div>`; // close #sheet-content
+  }
+
   projectInfoPanel.innerHTML = html;
+
+  // On mobile: measure and set up sheet heights
+  if (isMobile) {
+    // Force layout to measure
+    requestAnimationFrame(() => {
+      sheetExpandedHeight = Math.min(projectInfoPanel.scrollHeight, window.innerHeight * 0.7);
+      projectInfoPanel.style.height = sheetExpandedHeight + 'px';
+      sheetExpanded = true;
+      sheetTranslateY = 0;
+      projectInfoPanel.style.transform = 'translateY(0)';
+    });
+  }
 
   // Re-attach close button events
   const closeBtn = document.getElementById('detail-close');
@@ -1613,6 +1782,12 @@ function returnToOverview() {
   }
   projectInfoPanel.style.opacity = '0';
   projectInfoPanel.style.pointerEvents = 'none';
+  if (isMobile) {
+    projectInfoPanel.style.transform = 'translateY(0)';
+    projectInfoPanel.style.height = '';
+    sheetExpanded = true;
+    sheetTranslateY = 0;
+  }
   // Stop any playing video
   const activeVideo = projectInfoPanel.querySelector('video');
   if (activeVideo) { activeVideo.pause(); activeVideo.removeAttribute('src'); activeVideo.load(); }
