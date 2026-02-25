@@ -817,7 +817,7 @@ nameLabelEl.id = 'creator-name-label';
 nameLabelEl.style.cssText = `
   position: fixed;
   left: 50%;
-  bottom: ${isMobile ? '28%' : '25%'};
+  bottom: ${isMobile ? '18%' : '25%'};
   transform: translateX(-50%);
   color: #ffffff;
   font-size: ${isMobile ? '10' : '13'}px;
@@ -1410,12 +1410,20 @@ lightboxOverlay.addEventListener('click', (e) => { if (e.target === lightboxOver
 // ============================================================
 // POPULATE PROJECT PANEL (adaptive: video / images)
 // ============================================================
-function populateProjectPanel(project) {
+function populateProjectPanel(project, creatorName) {
   // Stop any currently playing video before switching
   const existingVideo = projectInfoPanel.querySelector('video');
   if (existingVideo) { existingVideo.pause(); existingVideo.removeAttribute('src'); existingVideo.load(); }
 
   let html = '';
+
+  // On mobile: embed creator info at top of the sheet
+  if (isMobile && creatorName) {
+    html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(0,0,0,0.06);">`;
+    html += `<div style="font-size: 20px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px;">${creatorName}</div>`;
+    html += `<div style="font-size: 12px; color: #888; line-height: 1.5;">создает ии-ролики и ии-фотографии красиво</div>`;
+    html += `</div>`;
+  }
 
   // Client label
   if (project.client) {
@@ -1500,7 +1508,7 @@ function openDetailView(panel) {
   selectedCreatorIndex = panel.userData.creatorIndex;
 
   document.getElementById('detail-creator-name').textContent = panel.userData.creatorName;
-  populateProjectPanel(panel.userData.project);
+  populateProjectPanel(panel.userData.project, panel.userData.creatorName);
 
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
@@ -1546,8 +1554,10 @@ function openDetailView(panel) {
   labelVisible = false;
 
   setTimeout(() => {
-    creatorInfoPanel.style.opacity = '1';
-    creatorInfoPanel.style.pointerEvents = 'auto';
+    if (!isMobile) {
+      creatorInfoPanel.style.opacity = '1';
+      creatorInfoPanel.style.pointerEvents = 'auto';
+    }
     projectInfoPanel.style.opacity = '1';
     projectInfoPanel.style.pointerEvents = 'auto';
   }, 500);
@@ -1584,7 +1594,7 @@ function updateDetailProject(panel) {
     unhighlightPanel(selectedPanel);
   }
   selectedPanel = panel;
-  populateProjectPanel(panel.userData.project);
+  populateProjectPanel(panel.userData.project, panel.userData.creatorName);
   highlightPanel(panel);
 }
 
@@ -1597,8 +1607,10 @@ function returnToOverview() {
     unhighlightPanel(selectedPanel);
   }
 
-  creatorInfoPanel.style.opacity = '0';
-  creatorInfoPanel.style.pointerEvents = 'none';
+  if (!isMobile) {
+    creatorInfoPanel.style.opacity = '0';
+    creatorInfoPanel.style.pointerEvents = 'none';
+  }
   projectInfoPanel.style.opacity = '0';
   projectInfoPanel.style.pointerEvents = 'none';
   // Stop any playing video
