@@ -25,3 +25,24 @@ canvas {
   touch-action: none;
   cursor: none;
 }
+
+/* Project info panel scrollbar */
+#project-info-panel::-webkit-scrollbar {
+  width: 4px;
+}
+#project-info-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+#project-info-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+#project-info-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
+/* Lightbox overlay */
+#lightbox-overlay {
+  cursor: default;
+}

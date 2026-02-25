@@ -200,11 +200,51 @@ pmremGenerator.dispose();
 // CREATORS DATA
 // ============================================================
 const creators = [
-  { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
-  { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
-  { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
-  { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
-  { name: 'Vova Grankin', projects: ['Project 1', 'Project 2', 'Project 3', 'Project 4'] },
+  {
+    name: 'Vova Grankin',
+    projects: [
+      { name: 'New Year', client: 'T-Bank', type: 'video', videoUrl: 'https://03d93bbb-ff91-4601-bb07-d4da2ff19bfb.selstorage.ru/OAKLEY_LAB.MP4', images: [] },
+      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
+      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
+    ]
+  },
+  {
+    name: 'Vova Grankin',
+    projects: [
+      { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
+      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
+    ]
+  },
+  {
+    name: 'Vova Grankin',
+    projects: [
+      { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
+      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
+    ]
+  },
+  {
+    name: 'Vova Grankin',
+    projects: [
+      { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
+      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
+    ]
+  },
+  {
+    name: 'Vova Grankin',
+    projects: [
+      { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
+      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
+    ]
+  },
 ];
 
 // Responsive layout: carousel on both mobile and desktop
@@ -454,7 +494,7 @@ creators.forEach((creator, ci) => {
   innerSpheres.push(innerSphere);
 
   // 4 project panels
-  creator.projects.forEach((projName, pi) => {
+  creator.projects.forEach((proj, pi) => {
     const config = panelLayout[pi];
     const cardGroup = new THREE.Group();
 
@@ -480,7 +520,7 @@ creators.forEach((creator, ci) => {
     const labelAtTop = config.row === 1;
     const labelGeo = createSphericalPanelGeometry(sphereRadius + 0.005, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const labelMat = new THREE.MeshBasicMaterial({
-      map: createProjectLabelTexture(projName, labelAtTop),
+      map: createProjectLabelTexture(proj.name, labelAtTop),
       side: THREE.FrontSide,
       transparent: true,
       depthWrite: false
@@ -601,7 +641,8 @@ creators.forEach((creator, ci) => {
     cardGroup.userData = {
       creatorIndex: ci,
       projectIndex: pi,
-      projectName: projName,
+      projectName: proj.name,
+      project: proj,
       creatorName: creator.name,
       isHovered: false,
     };
@@ -1287,49 +1328,170 @@ creatorInfoPanel.innerHTML = `
 `;
 document.body.appendChild(creatorInfoPanel);
 
-// RIGHT / BOTTOM: Project info panel
+// RIGHT / BOTTOM: Project info panel (adaptive for video/images)
 const projectInfoPanel = document.createElement('div');
 projectInfoPanel.id = 'project-info-panel';
 projectInfoPanel.style.cssText = isMobile ? `
-  position: fixed; left: 20px; bottom: 20px; right: 20px;
-  padding: 20px 24px;
-  background: rgba(255,255,255,0.92); backdrop-filter: blur(20px);
-  border-radius: 16px; z-index: 100; opacity: 0; pointer-events: none;
+  position: fixed; left: 0; bottom: 0; right: 0;
+  max-height: 70vh; overflow-y: auto;
+  padding: 24px 20px;
+  background: rgba(255,255,255,0.08); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px 20px 0 0; z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.1);
-  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
 ` : `
   position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
-  width: 280px; padding: 40px;
-  background: rgba(255,255,255,0.92); backdrop-filter: blur(20px);
+  width: 420px; max-height: 80vh; overflow-y: auto;
+  padding: 40px;
+  background: rgba(255,255,255,0.06); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 16px; z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-`;
-projectInfoPanel.innerHTML = isMobile ? `
-  <div>
-    <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 4px;">Проект</div>
-    <div style="font-size: 20px; font-weight: 600; color: #1a1a1a;" id="detail-project-name"></div>
-  </div>
-  <button id="detail-close" style="
-    background: #1a1a1a; color: white; border: none; padding: 10px 20px; border-radius: 8px;
-    font-size: 13px; cursor: pointer; font-family: inherit; letter-spacing: 1px;
-  ">Close</button>
-` : `
-  <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 8px;">Проект</div>
-  <div style="font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 24px;" id="detail-project-name"></div>
-  <button id="detail-close" style="
-    background: #1a1a1a; color: white; border: none; padding: 12px 28px; border-radius: 8px;
-    font-size: 14px; cursor: none; font-family: inherit; letter-spacing: 1px; transition: background 0.2s;
-  ">Close</button>
+  box-shadow: 0 8px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
 `;
 document.body.appendChild(projectInfoPanel);
 
-document.getElementById('detail-close').addEventListener('click', returnToOverview);
-document.getElementById('detail-close').addEventListener('mouseenter', (e) => { e.target.style.background = '#333'; setCursorHover(true); });
-document.getElementById('detail-close').addEventListener('mouseleave', (e) => { e.target.style.background = '#1a1a1a'; setCursorHover(false); });
+// ============================================================
+// LIGHTBOX OVERLAY (for image projects)
+// ============================================================
+const lightboxOverlay = document.createElement('div');
+lightboxOverlay.id = 'lightbox-overlay';
+lightboxOverlay.style.cssText = `
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.92); backdrop-filter: blur(10px);
+  z-index: 200; display: none; align-items: center; justify-content: center;
+  flex-direction: column; cursor: default;
+`;
+lightboxOverlay.innerHTML = `
+  <button id="lightbox-close" style="position: absolute; top: 20px; right: 24px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 210; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s; font-family: system-ui;">✕</button>
+  <button id="lightbox-prev" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: white; font-size: 28px; cursor: pointer; z-index: 210; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background 0.2s;">‹</button>
+  <img id="lightbox-image" style="max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.3); user-select: none;" />
+  <button id="lightbox-next" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: white; font-size: 28px; cursor: pointer; z-index: 210; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background 0.2s;">›</button>
+  <div id="lightbox-counter" style="position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.5); font-size: 13px; letter-spacing: 2px; font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif; font-weight: 300;"></div>
+`;
+document.body.appendChild(lightboxOverlay);
+
+let lightboxImages = [];
+let lightboxIndex = 0;
+
+function openLightbox(images, index) {
+  lightboxImages = images;
+  lightboxIndex = index;
+  updateLightboxImage();
+  lightboxOverlay.style.display = 'flex';
+}
+
+function closeLightbox() {
+  lightboxOverlay.style.display = 'none';
+  lightboxImages = [];
+}
+
+function updateLightboxImage() {
+  document.getElementById('lightbox-image').src = lightboxImages[lightboxIndex];
+  document.getElementById('lightbox-counter').textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+  document.getElementById('lightbox-prev').style.display = lightboxIndex > 0 ? 'flex' : 'none';
+  document.getElementById('lightbox-next').style.display = lightboxIndex < lightboxImages.length - 1 ? 'flex' : 'none';
+}
+
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-close').addEventListener('mouseenter', function() { this.style.opacity = '1'; });
+document.getElementById('lightbox-close').addEventListener('mouseleave', function() { this.style.opacity = '0.7'; });
+document.getElementById('lightbox-prev').addEventListener('click', () => { if (lightboxIndex > 0) { lightboxIndex--; updateLightboxImage(); } });
+document.getElementById('lightbox-prev').addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.2)'; });
+document.getElementById('lightbox-prev').addEventListener('mouseleave', function() { this.style.background = 'rgba(255,255,255,0.1)'; });
+document.getElementById('lightbox-next').addEventListener('click', () => { if (lightboxIndex < lightboxImages.length - 1) { lightboxIndex++; updateLightboxImage(); } });
+document.getElementById('lightbox-next').addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.2)'; });
+document.getElementById('lightbox-next').addEventListener('mouseleave', function() { this.style.background = 'rgba(255,255,255,0.1)'; });
+lightboxOverlay.addEventListener('click', (e) => { if (e.target === lightboxOverlay) closeLightbox(); });
+
+// ============================================================
+// POPULATE PROJECT PANEL (adaptive: video / images)
+// ============================================================
+function populateProjectPanel(project) {
+  // Stop any currently playing video before switching
+  const existingVideo = projectInfoPanel.querySelector('video');
+  if (existingVideo) { existingVideo.pause(); existingVideo.removeAttribute('src'); existingVideo.load(); }
+
+  let html = '';
+
+  // Client label
+  if (project.client) {
+    html += `<div style="font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: #888; margin-bottom: 6px; font-weight: 500;">${project.client}</div>`;
+  }
+
+  // Project name
+  html += `<div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: #1a1a1a; margin-bottom: ${isMobile ? '16' : '24'}px;">${project.name}</div>`;
+
+  // Video player (16:9)
+  if (project.type === 'video' && project.videoUrl) {
+    html += `
+      <div style="position: relative; width: 100%; padding-bottom: 56.25%; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: ${isMobile ? '16' : '24'}px;">
+        <video
+          src="${project.videoUrl}"
+          controls
+          playsinline
+          preload="metadata"
+          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; cursor: default; border-radius: 12px;"
+        ></video>
+      </div>
+    `;
+  }
+
+  // Image gallery grid
+  if (project.type === 'images' && project.images && project.images.length > 0) {
+    html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: ${isMobile ? '16' : '24'}px;">`;
+    project.images.forEach((imgUrl, idx) => {
+      html += `
+        <div data-lightbox-idx="${idx}" style="position: relative; padding-bottom: 100%; border-radius: 8px; overflow: hidden; cursor: pointer; background: rgba(255,255,255,0.05);">
+          <img src="${imgUrl}" loading="lazy" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" />
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  // Close button
+  html += `
+    <button id="detail-close" style="
+      background: rgba(255,255,255,0.12); color: #1a1a1a; border: 1px solid rgba(0,0,0,0.08); padding: ${isMobile ? '12px 20px' : '14px 28px'}; border-radius: 10px;
+      font-size: ${isMobile ? '13' : '14'}px; cursor: ${isMobile ? 'pointer' : 'none'}; font-family: inherit; letter-spacing: 1px;
+      transition: background 0.2s, border-color 0.2s; width: 100%; font-weight: 500;
+      backdrop-filter: blur(8px);
+    ">Close</button>
+  `;
+
+  projectInfoPanel.innerHTML = html;
+
+  // Re-attach close button events
+  const closeBtn = document.getElementById('detail-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', returnToOverview);
+    closeBtn.addEventListener('mouseenter', (e) => { e.target.style.background = 'rgba(0,0,0,0.08)'; setCursorHover(true); });
+    closeBtn.addEventListener('mouseleave', (e) => { e.target.style.background = 'rgba(255,255,255,0.12)'; setCursorHover(false); });
+  }
+
+  // Attach image click listeners for lightbox
+  if (project.type === 'images' && project.images && project.images.length > 0) {
+    projectInfoPanel.querySelectorAll('[data-lightbox-idx]').forEach(el => {
+      el.addEventListener('click', () => {
+        openLightbox(project.images, parseInt(el.dataset.lightboxIdx));
+      });
+      el.addEventListener('mouseenter', () => {
+        const img = el.querySelector('img');
+        if (img) img.style.transform = 'scale(1.05)';
+        setCursorHover(true);
+      });
+      el.addEventListener('mouseleave', () => {
+        const img = el.querySelector('img');
+        if (img) img.style.transform = 'scale(1)';
+        setCursorHover(false);
+      });
+    });
+  }
+}
 
 function openDetailView(panel) {
   if (isDetailView) return;
@@ -1338,7 +1500,7 @@ function openDetailView(panel) {
   selectedCreatorIndex = panel.userData.creatorIndex;
 
   document.getElementById('detail-creator-name').textContent = panel.userData.creatorName;
-  document.getElementById('detail-project-name').textContent = panel.userData.projectName;
+  populateProjectPanel(panel.userData.project);
 
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
@@ -1418,13 +1580,11 @@ function unhighlightPanel(panel) {
 }
 
 function updateDetailProject(panel) {
-  // Reset previous selected panel
   if (selectedPanel && selectedPanel !== panel) {
     unhighlightPanel(selectedPanel);
   }
   selectedPanel = panel;
-  document.getElementById('detail-project-name').textContent = panel.userData.projectName;
-  // Highlight new panel with white glow
+  populateProjectPanel(panel.userData.project);
   highlightPanel(panel);
 }
 
@@ -1441,6 +1601,9 @@ function returnToOverview() {
   creatorInfoPanel.style.pointerEvents = 'none';
   projectInfoPanel.style.opacity = '0';
   projectInfoPanel.style.pointerEvents = 'none';
+  // Stop any playing video
+  const activeVideo = projectInfoPanel.querySelector('video');
+  if (activeVideo) { activeVideo.pause(); activeVideo.removeAttribute('src'); activeVideo.load(); }
 
   gsap.to(camera.position, {
     x: baseCameraPos.x + cameraPanOffset.x,
@@ -1524,7 +1687,15 @@ renderer.domElement.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && isDetailView) returnToOverview();
+  if (e.key === 'Escape') {
+    if (typeof lightboxOverlay !== 'undefined' && lightboxOverlay.style.display === 'flex') { closeLightbox(); return; }
+    if (isDetailView) returnToOverview();
+  }
+  // Lightbox arrow navigation
+  if (typeof lightboxOverlay !== 'undefined' && lightboxOverlay.style.display === 'flex') {
+    if (e.key === 'ArrowLeft' && lightboxIndex > 0) { lightboxIndex--; updateLightboxImage(); }
+    if (e.key === 'ArrowRight' && lightboxIndex < lightboxImages.length - 1) { lightboxIndex++; updateLightboxImage(); }
+  }
 });
 
 // ============================================================
