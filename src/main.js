@@ -323,6 +323,9 @@ loadingManager.onLoad = () => {
       loading.style.opacity = '0';
       setTimeout(() => loading.remove(), 600);
     }
+    // Show top nav bar
+    const topNav = document.getElementById('top-nav');
+    if (topNav) topNav.style.opacity = '1';
     // Show instructions
     const instr = document.getElementById('instructions');
     if (instr) instr.style.opacity = '0.8';
@@ -817,12 +820,12 @@ nameLabelEl.id = 'creator-name-label';
 nameLabelEl.style.cssText = `
   position: fixed;
   left: 50%;
-  bottom: ${isMobile ? '18%' : '25%'};
+  bottom: ${isMobile ? '22%' : '25%'};
   transform: translateX(-50%);
   color: #ffffff;
-  font-size: ${isMobile ? '10' : '13'}px;
-  font-weight: 500;
-  letter-spacing: ${isMobile ? '1' : '2'}px;
+  font-size: ${isMobile ? '16' : '13'}px;
+  font-weight: ${isMobile ? '600' : '500'};
+  letter-spacing: ${isMobile ? '2' : '2'}px;
   text-transform: uppercase;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   white-space: nowrap;
@@ -833,6 +836,39 @@ nameLabelEl.style.cssText = `
   transition: opacity 0.35s ease;
 `;
 document.body.appendChild(nameLabelEl);
+
+// ============================================================
+// TOP NAVIGATION BAR
+// ============================================================
+const topNav = document.createElement('div');
+topNav.id = 'top-nav';
+topNav.style.cssText = `
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: ${isMobile ? '16px 20px' : '20px 40px'};
+  z-index: 150; opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: auto;
+  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+`;
+topNav.innerHTML = isMobile ? `
+  <a href="mailto:hello@notrealtalents.ai" style="font-size: 10px; color: rgba(255,255,255,0.6); text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s;">hello@notrealtalents.ai</a>
+  <img src="/NotReal_logo.svg" alt="NotReal" style="height: 14px; position: absolute; left: 50%; transform: translateX(-50%);" />
+  <a href="#" id="download-presentation" style="font-size: 10px; color: rgba(255,255,255,0.6); text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s;">скачать презентацию</a>
+` : `
+  <a href="mailto:hello@notrealtalents.ai" style="font-size: 13px; color: rgba(255,255,255,0.5); text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; cursor: none;">hello@notrealtalents.ai</a>
+  <img src="/NotReal_logo.svg" alt="NotReal" style="height: 16px;" />
+  <a href="#" id="download-presentation" style="font-size: 13px; color: rgba(255,255,255,0.5); text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; cursor: none;">скачать презентацию</a>
+`;
+document.body.appendChild(topNav);
+
+// Hover effects for nav links (desktop)
+if (!isMobile) {
+  topNav.querySelectorAll('a').forEach(link => {
+    link.addEventListener('mouseenter', () => { link.style.color = 'rgba(255,255,255,0.9)'; setCursorHover(true); });
+    link.addEventListener('mouseleave', () => { link.style.color = 'rgba(255,255,255,0.5)'; setCursorHover(false); });
+  });
+}
 
 // Keep a dummy nameLabels array for compatibility with loadingManager.onLoad
 const nameLabels = creators.map(() => ({ style: { opacity: '0', filter: '' } }));
@@ -1552,17 +1588,17 @@ function populateProjectPanel(project, creatorName) {
   if (isMobile) {
     // --- DRAG HANDLE ---
     html += `<div id="sheet-handle" style="padding: 12px 0 8px; cursor: grab; touch-action: none;">`;
-    html += `<div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(0,0,0,0.15); margin: 0 auto;"></div>`;
+    html += `<div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.25); margin: 0 auto;"></div>`;
     html += `</div>`;
 
     // --- COLLAPSED MINI-BAR (shown when sheet is collapsed) ---
     html += `<div id="sheet-collapsed" style="position: absolute; left: 0; right: 0; top: 0; padding: 20px 24px 16px; pointer-events: none; opacity: 0; transition: opacity 0.2s ease;">`;
     html += `<div style="display: flex; align-items: center; justify-content: space-between;">`;
     html += `<div>`;
-    if (project.client) html += `<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #888; margin-bottom: 2px;">${project.client}</div>`;
-    html += `<div style="font-size: 18px; font-weight: 600; color: #1a1a1a;">${project.name}</div>`;
+    if (project.client) html += `<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 2px;">${project.client}</div>`;
+    html += `<div style="font-size: 18px; font-weight: 600; color: #ffffff;">${project.name}</div>`;
     html += `</div>`;
-    html += `<div style="font-size: 11px; color: #aaa; letter-spacing: 1px;">↑ swipe up</div>`;
+    html += `<div style="font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 1px;">↑ swipe up</div>`;
     html += `</div>`;
     html += `</div>`;
 
@@ -1572,19 +1608,19 @@ function populateProjectPanel(project, creatorName) {
 
   // On mobile: embed creator info at top of the sheet
   if (isMobile && creatorName) {
-    html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(0,0,0,0.06);">`;
-    html += `<div style="font-size: 20px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px;">${creatorName}</div>`;
-    html += `<div style="font-size: 12px; color: #888; line-height: 1.5;">создает ии-ролики и ии-фотографии красиво</div>`;
+    html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1);">`;
+    html += `<div style="font-size: 20px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${creatorName}</div>`;
+    html += `<div style="font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5;">создает ии-ролики и ии-фотографии красиво</div>`;
     html += `</div>`;
   }
 
   // Client label
   if (project.client) {
-    html += `<div style="font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: #888; margin-bottom: 6px; font-weight: 500;">${project.client}</div>`;
+    html += `<div style="font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: ${isMobile ? 'rgba(255,255,255,0.5)' : '#888'}; margin-bottom: 6px; font-weight: 500;">${project.client}</div>`;
   }
 
   // Project name
-  html += `<div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: #1a1a1a; margin-bottom: ${isMobile ? '16' : '24'}px;">${project.name}</div>`;
+  html += `<div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: ${isMobile ? '#ffffff' : '#1a1a1a'}; margin-bottom: ${isMobile ? '16' : '24'}px;">${project.name}</div>`;
 
   // Video player (16:9)
   if (project.type === 'video' && project.videoUrl) {
@@ -1617,7 +1653,7 @@ function populateProjectPanel(project, creatorName) {
   // Close button
   html += `
     <button id="detail-close" style="
-      background: rgba(255,255,255,0.12); color: #1a1a1a; border: 1px solid rgba(0,0,0,0.08); padding: ${isMobile ? '12px 20px' : '14px 28px'}; border-radius: 10px;
+      background: rgba(255,255,255,0.12); color: ${isMobile ? '#ffffff' : '#1a1a1a'}; border: 1px solid ${isMobile ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'}; padding: ${isMobile ? '12px 20px' : '14px 28px'}; border-radius: 10px;
       font-size: ${isMobile ? '13' : '14'}px; cursor: ${isMobile ? 'pointer' : 'none'}; font-family: inherit; letter-spacing: 1px;
       transition: background 0.2s, border-color 0.2s; width: 100%; font-weight: 500;
       backdrop-filter: blur(8px);
