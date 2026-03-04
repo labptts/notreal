@@ -416,20 +416,6 @@ function createSphericalPanelGeometry(radius, phiStart, phiLength, thetaStart, t
 // ============================================================
 // CREATE PROJECT LABEL TEXTURE (for each panel)
 // ============================================================
-function drawRoundedRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
 function createProjectLabelTexture(projectName, labelAtTop = false, clientName = '') {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
@@ -437,68 +423,86 @@ function createProjectLabelTexture(projectName, labelAtTop = false, clientName =
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 1024, 1024);
 
-  // Measure text to size the pill
-  ctx.font = '600 52px "SF Pro Display", "Helvetica Neue", Arial';
-  const nameWidth = ctx.measureText(projectName).width;
-  ctx.font = '400 30px "SF Pro Display", "Helvetica Neue", Arial';
-  const clientWidth = clientName ? ctx.measureText(clientName).width : 0;
-  const pillTextWidth = Math.max(nameWidth, clientWidth);
-
-  const pillPadX = 48;
-  const pillPadY = clientName ? 24 : 20;
-  const pillH = clientName ? 100 : 70;
-  const pillW = pillTextWidth + pillPadX * 2;
-  const pillX = (1024 - pillW) / 2;
-  const pillR = 20;
-
   if (labelAtTop) {
-    const pillY = 60;
-    // Frosted glass pill background
-    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.fill();
-    // Subtle border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // Strong gradient backdrop — 45% of panel height
+    const grad = ctx.createLinearGradient(0, 0, 0, 460);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.85)');
+    grad.addColorStop(0.6, 'rgba(0, 0, 0, 0.4)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 460);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 1;
+
     if (clientName) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '400 30px "SF Pro Display", "Helvetica Neue", Arial';
-      ctx.fillText(clientName, 512, pillY + 34);
+      // Client — white, lighter weight
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '400 32px "SF Pro Display", "Helvetica Neue", Arial';
+      // Sharp shadow layer
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+      ctx.fillText(clientName, 512, 80);
+      // Soft shadow layer (draw again)
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 3;
+      ctx.fillText(clientName, 512, 80);
     }
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = '600 52px "SF Pro Display", "Helvetica Neue", Arial';
-    ctx.fillText(projectName, 512, clientName ? pillY + 72 : pillY + pillH / 2);
+
+    // Project name — white, bold, large
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '600 60px "SF Pro Display", "Helvetica Neue", Arial';
+    const nameY = clientName ? 148 : 110;
+    // Sharp shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(projectName, 512, nameY);
+    // Soft glow shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(projectName, 512, nameY);
   } else {
-    const pillY = 1024 - 60 - pillH;
-    // Frosted glass pill background
-    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.fill();
-    // Subtle border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // Strong gradient backdrop — 45% of panel height from bottom
+    const grad = ctx.createLinearGradient(0, 564, 0, 1024);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(0.4, 'rgba(0, 0, 0, 0.4)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 564, 1024, 460);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 1;
+
     if (clientName) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '400 30px "SF Pro Display", "Helvetica Neue", Arial';
-      ctx.fillText(clientName, 512, pillY + 34);
+      // Client — white, lighter weight
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '400 32px "SF Pro Display", "Helvetica Neue", Arial';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+      ctx.fillText(clientName, 512, 850);
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 3;
+      ctx.fillText(clientName, 512, 850);
     }
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = '600 52px "SF Pro Display", "Helvetica Neue", Arial';
-    ctx.fillText(projectName, 512, clientName ? pillY + 72 : pillY + pillH / 2);
+
+    // Project name — white, bold, large
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '600 60px "SF Pro Display", "Helvetica Neue", Arial';
+    const nameY = clientName ? 918 : 900;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(projectName, 512, nameY);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(projectName, 512, nameY);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
