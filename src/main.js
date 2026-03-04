@@ -201,25 +201,18 @@ pmremGenerator.dispose();
 // ============================================================
 const creators = [
   {
-    name: 'Vova Grankin',
+    name: 'Дмитрий Фольмер',
+    bio: 'AI-креатор с операторским бэкграундом. Я оператор-постановщик — снимаю рекламу, клипы и кино. Понимаю кадр изнутри: свет, текстура, драматургия, актёры, ритм сцены. Это позволяет создавать AI-изображения выразительными и кинематографичными — и не пропускать «пластилиновую» картинку с фальшивой физикой и мёртвыми актёрами.\nМне близки проекты в реализме — где в основе идея, эмоция и ощущение живого момента.\nРаботаю как с full AI-проектами, так и использую AI для усиления реальных съёмок.',
     projects: [
-      { name: 'New Year', client: 'T-Bank', type: 'video', videoUrl: 'https://03d93bbb-ff91-4601-bb07-d4da2ff19bfb.selstorage.ru/OAKLEY_LAB.MP4', images: [] },
-      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
-      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
-      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
+      { name: 'Action', client: 'Higgsfield', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_3.mp4', preview: '/projects/NR_DimaFolmer_3.webp', images: [] },
+      { name: 'THE BEST FRIEND', client: 'Personal', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_1.mp4', preview: '/projects/NR_DimaFolmer_1.webp', images: [] },
+      { name: 'Showreel', client: '', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_2.mp4', preview: '/projects/NR_DimaFolmer_2.webp', images: [] },
+      { name: 'Showreel', client: '', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_2.mp4', preview: '/projects/NR_DimaFolmer_2.webp', images: [] },
     ]
   },
   {
     name: 'Vova Grankin',
-    projects: [
-      { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
-      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
-      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
-      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
-    ]
-  },
-  {
-    name: 'Vova Grankin',
+    bio: '',
     projects: [
       { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
       { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
@@ -229,6 +222,7 @@ const creators = [
   },
   {
     name: 'Vova Grankin',
+    bio: '',
     projects: [
       { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
       { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
@@ -238,6 +232,17 @@ const creators = [
   },
   {
     name: 'Vova Grankin',
+    bio: '',
+    projects: [
+      { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
+      { name: 'Project 3', client: '', type: 'video', videoUrl: '', images: [] },
+      { name: 'Project 4', client: '', type: 'images', videoUrl: '', images: [] },
+    ]
+  },
+  {
+    name: 'Vova Grankin',
+    bio: '',
     projects: [
       { name: 'Project 1', client: '', type: 'video', videoUrl: '', images: [] },
       { name: 'Project 2', client: '', type: 'images', videoUrl: '', images: [] },
@@ -400,7 +405,7 @@ function createSphericalPanelGeometry(radius, phiStart, phiLength, thetaStart, t
 // ============================================================
 // CREATE PROJECT LABEL TEXTURE (for each panel)
 // ============================================================
-function createProjectLabelTexture(projectName, labelAtTop = false) {
+function createProjectLabelTexture(projectName, labelAtTop = false, clientName = '') {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 1024;
@@ -414,14 +419,19 @@ function createProjectLabelTexture(projectName, labelAtTop = false) {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1024, 324);
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 20;
     ctx.shadowOffsetY = 2;
-    ctx.fillText(projectName, 512, 124);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (clientName) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = '400 28px "SF Pro Display", "Helvetica Neue", Arial';
+      ctx.fillText(clientName, 512, 90);
+    }
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
+    ctx.fillText(projectName, 512, clientName ? 140 : 124);
   } else {
     const grad = ctx.createLinearGradient(0, 700, 0, 1024);
     grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
@@ -429,14 +439,19 @@ function createProjectLabelTexture(projectName, labelAtTop = false) {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 700, 1024, 324);
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 20;
     ctx.shadowOffsetY = 2;
-    ctx.fillText(projectName, 512, 900);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (clientName) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = '400 28px "SF Pro Display", "Helvetica Neue", Arial';
+      ctx.fillText(clientName, 512, 870);
+    }
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
+    ctx.fillText(projectName, 512, clientName ? 920 : 900);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -501,10 +516,13 @@ creators.forEach((creator, ci) => {
     const config = panelLayout[pi];
     const cardGroup = new THREE.Group();
 
-    // Front panel
+    // Front panel — load per-project preview if available
+    const projPreviewTexture = proj.preview
+      ? (() => { const t = textureLoader.load(proj.preview); t.colorSpace = THREE.SRGBColorSpace; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; })()
+      : panelImage;
     const frontGeo = createSphericalPanelGeometry(sphereRadius, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const frontMat = new THREE.MeshPhysicalMaterial({
-      map: panelImage,
+      map: projPreviewTexture,
       side: THREE.FrontSide,
       roughness: 0.01,
       metalness: 0.05,
@@ -523,7 +541,7 @@ creators.forEach((creator, ci) => {
     const labelAtTop = config.row === 1;
     const labelGeo = createSphericalPanelGeometry(sphereRadius + 0.005, config.phiStart, config.phiLength, config.thetaStart, config.thetaLength);
     const labelMat = new THREE.MeshBasicMaterial({
-      map: createProjectLabelTexture(proj.name, labelAtTop),
+      map: createProjectLabelTexture(proj.name, labelAtTop, proj.client),
       side: THREE.FrontSide,
       transparent: true,
       depthWrite: false
@@ -1360,7 +1378,7 @@ creatorInfoPanel.style.cssText = isMobile ? `
 `;
 creatorInfoPanel.innerHTML = `
   <div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px;" id="detail-creator-name"></div>
-  <div style="font-size: ${isMobile ? '12' : '14'}px; color: #666; line-height: 1.6;">создает ии-ролики и ии-фотографии красиво</div>
+  <div style="font-size: ${isMobile ? '12' : '14'}px; color: #666; line-height: 1.6;" id="detail-creator-bio"></div>
 `;
 document.body.appendChild(creatorInfoPanel);
 
@@ -1610,7 +1628,8 @@ function populateProjectPanel(project, creatorName) {
   if (isMobile && creatorName) {
     html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1);">`;
     html += `<div style="font-size: 20px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${creatorName}</div>`;
-    html += `<div style="font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5;">создает ии-ролики и ии-фотографии красиво</div>`;
+    const mobileBio = creators[selectedCreatorIndex] ? creators[selectedCreatorIndex].bio : '';
+    html += `<div style="font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5;">${mobileBio ? mobileBio.replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : ''}</div>`;
     html += `</div>`;
   }
 
@@ -1713,6 +1732,11 @@ function openDetailView(panel) {
   selectedCreatorIndex = panel.userData.creatorIndex;
 
   document.getElementById('detail-creator-name').textContent = panel.userData.creatorName;
+  const creatorBio = creators[panel.userData.creatorIndex].bio;
+  const bioEl = document.getElementById('detail-creator-bio');
+  if (bioEl) {
+    bioEl.innerHTML = creatorBio ? creatorBio.replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : '';
+  }
   populateProjectPanel(panel.userData.project, panel.userData.creatorName);
 
   const creatorGroup = creatorGroups[selectedCreatorIndex];
