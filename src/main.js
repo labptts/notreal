@@ -197,6 +197,17 @@ scene.environment = envMap;
 pmremGenerator.dispose();
 
 // ============================================================
+// TYPOGRAPHY HELPER — non-breaking spaces after short prepositions
+// ============================================================
+function fixTypography(text) {
+  if (!text) return '';
+  // Replace space after 1-3 letter Russian prepositions/conjunctions with &nbsp;
+  return text.replace(/(\s|^)(и|в|с|к|о|у|а|я|на|за|из|по|не|ни|но|до|от|об|то|же|бы|ли|во|со|ко|как|где|что|при|для|без|под|над|про|это|или|так|уже|ещё|еще)\s/gi, (match, before, word) => {
+    return before + word + '\u00A0';
+  });
+}
+
+// ============================================================
 // CREATORS DATA
 // ============================================================
 const creators = [
@@ -405,6 +416,20 @@ function createSphericalPanelGeometry(radius, phiStart, phiLength, thetaStart, t
 // ============================================================
 // CREATE PROJECT LABEL TEXTURE (for each panel)
 // ============================================================
+function drawRoundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 function createProjectLabelTexture(projectName, labelAtTop = false, clientName = '') {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
@@ -412,46 +437,68 @@ function createProjectLabelTexture(projectName, labelAtTop = false, clientName =
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 1024, 1024);
 
+  // Measure text to size the pill
+  ctx.font = '600 52px "SF Pro Display", "Helvetica Neue", Arial';
+  const nameWidth = ctx.measureText(projectName).width;
+  ctx.font = '400 30px "SF Pro Display", "Helvetica Neue", Arial';
+  const clientWidth = clientName ? ctx.measureText(clientName).width : 0;
+  const pillTextWidth = Math.max(nameWidth, clientWidth);
+
+  const pillPadX = 48;
+  const pillPadY = clientName ? 24 : 20;
+  const pillH = clientName ? 100 : 70;
+  const pillW = pillTextWidth + pillPadX * 2;
+  const pillX = (1024 - pillW) / 2;
+  const pillR = 20;
+
   if (labelAtTop) {
-    const grad = ctx.createLinearGradient(0, 0, 0, 324);
-    grad.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 1024, 324);
+    const pillY = 60;
+    // Frosted glass pill background
+    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fill();
+    // Subtle border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 20;
-    ctx.shadowOffsetY = 2;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
     if (clientName) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '400 28px "SF Pro Display", "Helvetica Neue", Arial';
-      ctx.fillText(clientName, 512, 90);
+      ctx.font = '400 30px "SF Pro Display", "Helvetica Neue", Arial';
+      ctx.fillText(clientName, 512, pillY + 34);
     }
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
-    ctx.fillText(projectName, 512, clientName ? 140 : 124);
+    ctx.font = '600 52px "SF Pro Display", "Helvetica Neue", Arial';
+    ctx.fillText(projectName, 512, clientName ? pillY + 72 : pillY + pillH / 2);
   } else {
-    const grad = ctx.createLinearGradient(0, 700, 0, 1024);
-    grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 700, 1024, 324);
+    const pillY = 1024 - 60 - pillH;
+    // Frosted glass pill background
+    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fill();
+    // Subtle border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 20;
-    ctx.shadowOffsetY = 2;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
     if (clientName) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '400 28px "SF Pro Display", "Helvetica Neue", Arial';
-      ctx.fillText(clientName, 512, 870);
+      ctx.font = '400 30px "SF Pro Display", "Helvetica Neue", Arial';
+      ctx.fillText(clientName, 512, pillY + 34);
     }
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = '500 48px "SF Pro Display", "Helvetica Neue", Arial';
-    ctx.fillText(projectName, 512, clientName ? 920 : 900);
+    ctx.font = '600 52px "SF Pro Display", "Helvetica Neue", Arial';
+    ctx.fillText(projectName, 512, clientName ? pillY + 72 : pillY + pillH / 2);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -1629,7 +1676,7 @@ function populateProjectPanel(project, creatorName) {
     html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1);">`;
     html += `<div style="font-size: 20px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${creatorName}</div>`;
     const mobileBio = creators[selectedCreatorIndex] ? creators[selectedCreatorIndex].bio : '';
-    html += `<div style="font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5;">${mobileBio ? mobileBio.replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : ''}</div>`;
+    html += `<div style="font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5;">${mobileBio ? fixTypography(mobileBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : ''}</div>`;
     html += `</div>`;
   }
 
@@ -1735,7 +1782,7 @@ function openDetailView(panel) {
   const creatorBio = creators[panel.userData.creatorIndex].bio;
   const bioEl = document.getElementById('detail-creator-bio');
   if (bioEl) {
-    bioEl.innerHTML = creatorBio ? creatorBio.replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : '';
+    bioEl.innerHTML = creatorBio ? fixTypography(creatorBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : '';
   }
   populateProjectPanel(panel.userData.project, panel.userData.creatorName);
 
