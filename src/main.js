@@ -919,7 +919,7 @@ avatarEl.muted = true;
 avatarEl.playsInline = true;
 avatarEl.style.cssText = `
   position: fixed;
-  left: calc(100vw / 8);
+  left: calc(100vw / 5.5);
   top: 50%;
   transform: translate(-50%, -50%);
   height: 66vh;
@@ -957,7 +957,7 @@ detailBgOverlay.id = 'detail-bg-overlay';
 detailBgOverlay.style.cssText = `
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.25) 100%);
+  background: rgba(0,0,0,0.55);
   pointer-events: none;
 `;
 detailBgEl.appendChild(detailBgOverlay);
@@ -1528,10 +1528,9 @@ creatorInfoPanel.style.cssText = isMobile ? `
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 60%, transparent 100%);
 `;
 creatorInfoPanel.innerHTML = `
-  <div id="detail-creator-name" style="font-size: ${isMobile ? '28' : '42'}px; font-weight: 700; color: #ffffff; line-height: 1.1; white-space: pre-line;"></div>
+  <div id="detail-creator-name" style="font-size: ${isMobile ? '48' : '71'}px; font-weight: 700; color: #ffffff; line-height: 1.1;"></div>
 `;
 document.body.appendChild(creatorInfoPanel);
 
@@ -1760,10 +1759,8 @@ function openDetailView(panel) {
   selectedPanel = panel;
   selectedCreatorIndex = panel.userData.creatorIndex;
 
-  // Split name into two lines (first name \n last name)
   const nameEl = document.getElementById('detail-creator-name');
-  const nameParts = panel.userData.creatorName.split(' ');
-  nameEl.textContent = nameParts.join('\n');
+  nameEl.textContent = panel.userData.creatorName;
   const creatorBio = creators[panel.userData.creatorIndex].bio;
   const bioEl = document.getElementById('detail-creator-bio');
   if (bioEl) {
