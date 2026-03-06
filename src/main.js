@@ -922,9 +922,9 @@ avatarEl.style.cssText = `
   left: calc(100vw / 5.5);
   top: 50%;
   transform: translate(-50%, -50%);
-  height: 66vh;
-  max-height: 66vh;
-  max-width: 66vw;
+  height: 82vh;
+  max-height: 82vh;
+  max-width: 82vw;
   object-fit: contain;
   pointer-events: none;
   z-index: 10;
@@ -1523,8 +1523,8 @@ creatorInfoPanel.style.cssText = isMobile ? `
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   display: flex; flex-direction: column; gap: 8px;
 ` : `
-  position: fixed; left: 60px; bottom: 0; right: 60px;
-  padding: 32px 40px;
+  position: fixed; left: 60px; bottom: 60px; right: 60px;
+  padding: 0 40px;
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
@@ -1540,7 +1540,7 @@ creatorBioPanel.id = 'creator-bio-panel';
 creatorBioPanel.style.cssText = isMobile ? `
   display: none;
 ` : `
-  position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
+  position: fixed; right: 120px; top: 50%; transform: translateY(-50%);
   width: 280px; padding: 0;
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.6s ease;
