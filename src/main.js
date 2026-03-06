@@ -345,12 +345,13 @@ loadingManager.onLoad = () => {
     // Show instructions
     const instr = document.getElementById('instructions');
     if (instr) instr.style.opacity = '0.8';
-    // Reveal name label after loading
+    // Reveal name label and avatar after loading
     setTimeout(() => {
       nameLabelEl.textContent = creators[carouselCurrentIndex].name;
       currentLabelIndex = carouselCurrentIndex;
       nameLabelEl.style.opacity = '0.85';
       labelVisible = true;
+      showAvatar();
     }, 500);
   }, 400);
 };
@@ -907,6 +908,83 @@ nameLabelEl.style.cssText = `
 document.body.appendChild(nameLabelEl);
 
 // ============================================================
+// CREATOR AVATAR (hero video left of sphere)
+// ============================================================
+const avatarEl = document.createElement('video');
+avatarEl.id = 'creator-avatar';
+avatarEl.src = '/projects/Dex_Hero.webm';
+avatarEl.autoplay = true;
+avatarEl.loop = true;
+avatarEl.muted = true;
+avatarEl.playsInline = true;
+avatarEl.style.cssText = `
+  position: fixed;
+  left: calc(100vw / 8);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 66vh;
+  max-height: 66vh;
+  max-width: 66vw;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  user-select: none;
+  -webkit-user-select: none;
+`;
+document.body.appendChild(avatarEl);
+
+// ============================================================
+// DETAIL VIEW BACKGROUND (fullscreen behind sphere)
+// ============================================================
+const detailBgEl = document.createElement('div');
+detailBgEl.id = 'detail-background';
+detailBgEl.style.cssText = `
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+`;
+// Dark gradient overlay for the detail background
+const detailBgOverlay = document.createElement('div');
+detailBgOverlay.id = 'detail-bg-overlay';
+detailBgOverlay.style.cssText = `
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.25) 100%);
+  pointer-events: none;
+`;
+detailBgEl.appendChild(detailBgOverlay);
+document.body.appendChild(detailBgEl);
+
+let avatarVisible = false;
+function showAvatar() {
+  if (!avatarVisible) {
+    avatarEl.style.opacity = '1';
+    avatarVisible = true;
+  }
+}
+function hideAvatar(instant) {
+  if (avatarVisible || instant) {
+    avatarEl.style.opacity = '0';
+    avatarVisible = false;
+  }
+}
+function showDetailBackground() {
+  detailBgEl.style.backgroundImage = 'url(/projects/Dex_back.webp)';
+  detailBgEl.style.opacity = '1';
+}
+function hideDetailBackground() {
+  detailBgEl.style.opacity = '0';
+}
+
+// ============================================================
 // TOP NAVIGATION BAR
 // ============================================================
 const topNav = document.createElement('div');
@@ -931,11 +1009,31 @@ topNav.innerHTML = isMobile ? `
 `;
 document.body.appendChild(topNav);
 
+// Nav color switching for detail view (dark bg)
+function switchNavColors(toDark) {
+  const links = topNav.querySelectorAll('a');
+  const logo = topNav.querySelector('img');
+  if (toDark) {
+    links.forEach(l => l.style.color = '#ffffff');
+    if (logo) logo.src = '/NotReal_logo_white.svg';
+  } else {
+    links.forEach(l => l.style.color = '#000000');
+    if (logo) logo.src = '/NotReal_logo.svg';
+  }
+}
+
 // Hover effects for nav links (desktop)
+let navDarkMode = false;
 if (!isMobile) {
   topNav.querySelectorAll('a').forEach(link => {
-    link.addEventListener('mouseenter', () => { link.style.color = 'rgba(0,0,0,0.6)'; setCursorHover(true); });
-    link.addEventListener('mouseleave', () => { link.style.color = '#000000'; setCursorHover(false); });
+    link.addEventListener('mouseenter', () => {
+      link.style.color = isDetailView ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)';
+      setCursorHover(true);
+    });
+    link.addEventListener('mouseleave', () => {
+      link.style.color = isDetailView ? '#ffffff' : '#000000';
+      setCursorHover(false);
+    });
   });
 }
 
@@ -949,6 +1047,7 @@ function updateNameLabels() {
   if (isDetailView) {
     nameLabelEl.style.opacity = '0';
     labelVisible = false;
+    // Avatar stays visible in detail view
     return;
   }
 
@@ -969,6 +1068,7 @@ function updateNameLabels() {
     // Fade out during motion
     nameLabelEl.style.opacity = '0';
     labelVisible = false;
+    hideAvatar();
   } else if (centerIdx >= 0) {
     // Update text if changed
     if (currentLabelIndex !== centerIdx) {
@@ -980,6 +1080,7 @@ function updateNameLabels() {
       nameLabelEl.style.opacity = '0.85';
       labelVisible = true;
     }
+    showAvatar();
   }
 }
 
@@ -1192,6 +1293,7 @@ class InteractionController {
     raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
 
     if (isDetailView) {
+      if (projectPopupOpen) return; // don't process taps while popup is open
       const selectedObjects = sphereMeshGroups[selectedCreatorIndex].children.flatMap(c => c.children || [c]);
       const intersects = raycaster.intersectObjects(selectedObjects, true);
       const hit = findFrontFacingPanel(intersects);
@@ -1410,185 +1512,186 @@ if (!isMobile) {
 // ============================================================
 // DETAIL VIEW
 // ============================================================
-// LEFT / BOTTOM: Creator info panel
+// BOTTOM-LEFT: Creator name
 const creatorInfoPanel = document.createElement('div');
 creatorInfoPanel.id = 'creator-info-panel';
 creatorInfoPanel.style.cssText = isMobile ? `
-  position: fixed; left: 20px; bottom: 100px; right: 20px;
+  position: fixed; left: 20px; bottom: 30px; right: 20px;
   padding: 0;
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  text-align: center;
+  display: flex; flex-direction: column; gap: 8px;
 ` : `
-  position: fixed; left: 60px; top: 50%; transform: translateY(-50%);
-  width: 280px; padding: 0;
+  position: fixed; left: 60px; bottom: 0; right: 60px;
+  padding: 32px 40px;
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 60%, transparent 100%);
 `;
 creatorInfoPanel.innerHTML = `
-  <div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px;" id="detail-creator-name"></div>
-  <div style="font-size: ${isMobile ? '12' : '14'}px; color: #666; line-height: 1.6;" id="detail-creator-bio"></div>
+  <div id="detail-creator-name" style="font-size: ${isMobile ? '28' : '42'}px; font-weight: 700; color: #ffffff; line-height: 1.1; white-space: pre-line;"></div>
 `;
 document.body.appendChild(creatorInfoPanel);
 
-// RIGHT / BOTTOM: Project info panel (adaptive for video/images)
-const projectInfoPanel = document.createElement('div');
-projectInfoPanel.id = 'project-info-panel';
-projectInfoPanel.style.cssText = isMobile ? `
-  position: fixed; left: 0; right: 0; bottom: 0;
-  overflow: hidden;
-  padding: 0;
-  background: rgba(255,255,255,0.08); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.12); border-bottom: none;
-  border-radius: 20px 20px 0 0; z-index: 100; opacity: 0; pointer-events: none;
-  transition: opacity 0.5s ease;
-  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  box-shadow: 0 -4px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
-  will-change: transform;
+// RIGHT: Creator bio (vertically centered)
+const creatorBioPanel = document.createElement('div');
+creatorBioPanel.id = 'creator-bio-panel';
+creatorBioPanel.style.cssText = isMobile ? `
+  display: none;
 ` : `
   position: fixed; right: 60px; top: 50%; transform: translateY(-50%);
-  width: 420px; max-height: 80vh; overflow-y: auto;
-  padding: 40px;
-  background: rgba(255,255,255,0.06); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 16px; z-index: 100; opacity: 0; pointer-events: none;
-  transition: opacity 0.5s ease;
+  width: 280px; padding: 0;
+  z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.6s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
 `;
-document.body.appendChild(projectInfoPanel);
+creatorBioPanel.innerHTML = `
+  <div id="detail-creator-bio" style="font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.7;"></div>
+`;
+document.body.appendChild(creatorBioPanel);
+
+// CENTERED PROJECT POPUP (overlay modal)
+const projectPopupOverlay = document.createElement('div');
+projectPopupOverlay.id = 'project-popup-overlay';
+projectPopupOverlay.style.cssText = `
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.80); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  z-index: 200; display: none; align-items: center; justify-content: center;
+  cursor: default; transition: opacity 0.3s ease;
+`;
+
+const projectPopupCard = document.createElement('div');
+projectPopupCard.id = 'project-popup-card';
+projectPopupCard.style.cssText = `
+  position: relative;
+  width: ${isMobile ? '92vw' : '560px'}; max-width: 90vw; max-height: 85vh; overflow-y: auto;
+  padding: ${isMobile ? '24px 20px' : '40px'};
+  background: rgba(30,30,30,0.85); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+`;
+projectPopupOverlay.appendChild(projectPopupCard);
+document.body.appendChild(projectPopupOverlay);
+
+// Close popup on click outside card
+projectPopupOverlay.addEventListener('click', (e) => {
+  if (e.target === projectPopupOverlay) closeProjectPopup();
+});
+
+let projectPopupOpen = false;
+
+function openProjectPopup(project, creatorName) {
+  // Stop any currently playing video
+  const existingVideo = projectPopupCard.querySelector('video');
+  if (existingVideo) { existingVideo.pause(); existingVideo.removeAttribute('src'); existingVideo.load(); }
+
+  let html = '';
+
+  // Close button
+  html += `<button id="popup-close" style="
+    position: absolute; top: 14px; right: 14px; width: 36px; height: 36px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 50%; color: rgba(255,255,255,0.7); font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: ${isMobile ? 'pointer' : 'none'}; transition: background 0.2s, color 0.2s; z-index: 10;
+    font-family: system-ui; line-height: 1; padding: 0;
+  ">&#10005;</button>`;
+
+  // Client label
+  if (project.client) {
+    html += `<div style="font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: rgba(255,255,255,0.45); margin-bottom: 6px; font-weight: 500; padding-right: 40px;">${project.client}</div>`;
+  }
+
+  // Project name
+  html += `<div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: #ffffff; margin-bottom: ${isMobile ? '16' : '24'}px; padding-right: 40px;">${project.name}</div>`;
+
+  // Video player (16:9)
+  if (project.type === 'video' && project.videoUrl) {
+    html += `
+      <div style="position: relative; width: 100%; padding-bottom: 56.25%; background: #000; border-radius: 12px; overflow: hidden;">
+        <video
+          src="${project.videoUrl}"
+          controls
+          playsinline
+          preload="metadata"
+          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; cursor: default; border-radius: 12px;"
+        ></video>
+      </div>
+    `;
+  }
+
+  // Image gallery grid
+  if (project.type === 'images' && project.images && project.images.length > 0) {
+    html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">`;
+    project.images.forEach((imgUrl, idx) => {
+      html += `
+        <div data-popup-lightbox-idx="${idx}" style="position: relative; padding-bottom: 100%; border-radius: 8px; overflow: hidden; cursor: pointer; background: rgba(255,255,255,0.05);">
+          <img src="${imgUrl}" loading="lazy" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" />
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  projectPopupCard.innerHTML = html;
+  projectPopupOverlay.style.display = 'flex';
+  projectPopupOpen = true;
+
+  // Attach close button
+  const closeBtn = document.getElementById('popup-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeProjectPopup);
+    if (!isMobile) {
+      closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = 'rgba(255,255,255,0.18)'; closeBtn.style.color = '#ffffff'; setCursorHover(true); });
+      closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'rgba(255,255,255,0.08)'; closeBtn.style.color = 'rgba(255,255,255,0.7)'; setCursorHover(false); });
+    }
+  }
+
+  // Attach image lightbox
+  if (project.type === 'images' && project.images && project.images.length > 0) {
+    projectPopupCard.querySelectorAll('[data-popup-lightbox-idx]').forEach(el => {
+      el.addEventListener('click', () => {
+        openLightbox(project.images, parseInt(el.dataset.popupLightboxIdx));
+      });
+      if (!isMobile) {
+        el.addEventListener('mouseenter', () => { const img = el.querySelector('img'); if (img) img.style.transform = 'scale(1.05)'; setCursorHover(true); });
+        el.addEventListener('mouseleave', () => { const img = el.querySelector('img'); if (img) img.style.transform = 'scale(1)'; setCursorHover(false); });
+      }
+    });
+  }
+}
+
+function closeProjectPopup() {
+  const video = projectPopupCard.querySelector('video');
+  if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
+  projectPopupOverlay.style.display = 'none';
+  projectPopupOpen = false;
+}
+
+// Keep old projectInfoPanel reference as no-op for safety (mobile sheet)
+const projectInfoPanel = { style: {}, querySelector: () => null, querySelectorAll: () => [], innerHTML: '' };
 
 // ============================================================
-// MOBILE SWIPE SHEET LOGIC
+// MOBILE SWIPE SHEET LOGIC (legacy — kept minimal for mobile popup)
 // ============================================================
 let sheetExpanded = true;
-let sheetCollapsedHeight = 72; // collapsed mini-bar height in px
-let sheetExpandedHeight = 0; // measured after content render
+let sheetCollapsedHeight = 72;
+let sheetExpandedHeight = 0;
 let sheetDragging = false;
 let sheetDragStartY = 0;
 let sheetDragCurrentY = 0;
-let sheetTranslateY = 0; // 0 = expanded, positive = amount collapsed
+let sheetTranslateY = 0;
 
-function getSheetExpandedHeight() {
-  if (!isMobile) return 0;
-  // Measure natural height, capped at 70vh
-  projectInfoPanel.style.transform = 'translateY(0)';
-  const natural = projectInfoPanel.scrollHeight;
-  return Math.min(natural, window.innerHeight * 0.7);
-}
+function setSheetPosition(translateY, animate) { /* no-op now */ }
+function expandSheet() { /* no-op */ }
+function collapseSheet() { /* no-op */ }
 
-function setSheetPosition(translateY, animate) {
-  if (!isMobile) return;
-  const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
-  translateY = Math.max(0, Math.min(translateY, maxTranslate));
-  sheetTranslateY = translateY;
-  if (animate) {
-    projectInfoPanel.style.transition = 'opacity 0.5s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
-  } else {
-    projectInfoPanel.style.transition = 'opacity 0.5s ease';
-  }
-  projectInfoPanel.style.transform = `translateY(${translateY}px)`;
-
-  // Toggle scrollability and content visibility
-  const content = document.getElementById('sheet-content');
-  const collapsed = document.getElementById('sheet-collapsed');
-  if (content && collapsed) {
-    if (translateY > (sheetExpandedHeight - sheetCollapsedHeight) * 0.5) {
-      // Collapsed state
-      content.style.opacity = '0';
-      content.style.pointerEvents = 'none';
-      collapsed.style.opacity = '1';
-      sheetExpanded = false;
-    } else {
-      // Expanded state
-      content.style.opacity = '1';
-      content.style.pointerEvents = 'auto';
-      collapsed.style.opacity = '0';
-      sheetExpanded = true;
-    }
-  }
-}
-
-function expandSheet() {
-  setSheetPosition(0, true);
-  sheetExpanded = true;
-}
-
-function collapseSheet() {
-  const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
-  setSheetPosition(maxTranslate, true);
-  sheetExpanded = false;
-}
-
-if (isMobile) {
-  projectInfoPanel.addEventListener('touchstart', (e) => {
-    // Only drag from the handle area (top 48px of visible panel)
-    const rect = projectInfoPanel.getBoundingClientRect();
-    const touchY = e.touches[0].clientY;
-    const relY = touchY - rect.top;
-    // Allow drag from handle (top part) — in expanded state top 48px, in collapsed always
-    if (sheetExpanded && relY > 56) return; // only drag from handle in expanded mode
-    sheetDragging = true;
-    sheetDragStartY = touchY;
-    sheetDragCurrentY = touchY;
-    projectInfoPanel.style.transition = 'opacity 0.5s ease'; // disable transform transition during drag
-  }, { passive: true });
-
-  projectInfoPanel.addEventListener('touchmove', (e) => {
-    if (!sheetDragging) return;
-    sheetDragCurrentY = e.touches[0].clientY;
-    const delta = sheetDragCurrentY - sheetDragStartY;
-    // In expanded state: drag down to collapse
-    // In collapsed state: drag up to expand
-    let newTranslate;
-    if (sheetExpanded) {
-      newTranslate = Math.max(0, delta); // only allow dragging down
-    } else {
-      const maxT = sheetExpandedHeight - sheetCollapsedHeight;
-      newTranslate = maxT + delta; // delta is negative when dragging up
-    }
-    const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
-    newTranslate = Math.max(0, Math.min(newTranslate, maxTranslate));
-    projectInfoPanel.style.transform = `translateY(${newTranslate}px)`;
-
-    // Live opacity transitions
-    const progress = newTranslate / maxTranslate; // 0=expanded, 1=collapsed
-    const content = document.getElementById('sheet-content');
-    const collapsed = document.getElementById('sheet-collapsed');
-    if (content) content.style.opacity = String(1 - progress);
-    if (collapsed) collapsed.style.opacity = String(progress);
-  }, { passive: true });
-
-  const sheetTouchEnd = () => {
-    if (!sheetDragging) return;
-    sheetDragging = false;
-    const delta = sheetDragCurrentY - sheetDragStartY;
-    const threshold = 60; // px needed to trigger state change
-    if (sheetExpanded) {
-      if (delta > threshold) {
-        collapseSheet();
-      } else {
-        expandSheet();
-      }
-    } else {
-      if (delta < -threshold) {
-        expandSheet();
-      } else {
-        collapseSheet();
-      }
-    }
-  };
-  projectInfoPanel.addEventListener('touchend', sheetTouchEnd);
-  projectInfoPanel.addEventListener('touchcancel', sheetTouchEnd);
-
-  // Tap on collapsed bar to expand
-  projectInfoPanel.addEventListener('click', (e) => {
-    if (!sheetExpanded && !sheetDragging) {
-      expandSheet();
-    }
-  });
+// (Mobile swipe sheet code removed — using popup instead)
+if (false) {
 }
 
 // ============================================================
@@ -1599,14 +1702,14 @@ lightboxOverlay.id = 'lightbox-overlay';
 lightboxOverlay.style.cssText = `
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.92); backdrop-filter: blur(10px);
-  z-index: 200; display: none; align-items: center; justify-content: center;
+  z-index: 300; display: none; align-items: center; justify-content: center;
   flex-direction: column; cursor: default;
 `;
 lightboxOverlay.innerHTML = `
-  <button id="lightbox-close" style="position: absolute; top: 20px; right: 24px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 210; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s; font-family: system-ui;">✕</button>
-  <button id="lightbox-prev" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: white; font-size: 28px; cursor: pointer; z-index: 210; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background 0.2s;">‹</button>
+  <button id="lightbox-close" style="position: absolute; top: 20px; right: 24px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 310; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s; font-family: system-ui;">✕</button>
+  <button id="lightbox-prev" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: white; font-size: 28px; cursor: pointer; z-index: 310; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background 0.2s;">‹</button>
   <img id="lightbox-image" style="max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.3); user-select: none;" />
-  <button id="lightbox-next" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: white; font-size: 28px; cursor: pointer; z-index: 210; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background 0.2s;">›</button>
+  <button id="lightbox-next" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: white; font-size: 28px; cursor: pointer; z-index: 310; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background 0.2s;">›</button>
   <div id="lightbox-counter" style="position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.5); font-size: 13px; letter-spacing: 2px; font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif; font-weight: 300;"></div>
 `;
 document.body.appendChild(lightboxOverlay);
@@ -1645,135 +1748,10 @@ document.getElementById('lightbox-next').addEventListener('mouseleave', function
 lightboxOverlay.addEventListener('click', (e) => { if (e.target === lightboxOverlay) closeLightbox(); });
 
 // ============================================================
-// POPULATE PROJECT PANEL (adaptive: video / images)
+// POPULATE PROJECT PANEL — replaced by popup, this is now a no-op
 // ============================================================
 function populateProjectPanel(project, creatorName) {
-  // Stop any currently playing video before switching
-  const existingVideo = projectInfoPanel.querySelector('video');
-  if (existingVideo) { existingVideo.pause(); existingVideo.removeAttribute('src'); existingVideo.load(); }
-
-  let html = '';
-
-  if (isMobile) {
-    // --- DRAG HANDLE ---
-    html += `<div id="sheet-handle" style="padding: 12px 0 8px; cursor: grab; touch-action: none;">`;
-    html += `<div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.25); margin: 0 auto;"></div>`;
-    html += `</div>`;
-
-    // --- COLLAPSED MINI-BAR (shown when sheet is collapsed) ---
-    html += `<div id="sheet-collapsed" style="position: absolute; left: 0; right: 0; top: 0; padding: 20px 24px 16px; pointer-events: none; opacity: 0; transition: opacity 0.2s ease;">`;
-    html += `<div style="display: flex; align-items: center; justify-content: space-between;">`;
-    html += `<div>`;
-    if (project.client) html += `<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 2px;">${project.client}</div>`;
-    html += `<div style="font-size: 18px; font-weight: 600; color: #ffffff;">${project.name}</div>`;
-    html += `</div>`;
-    html += `<div style="font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 1px;">↑ swipe up</div>`;
-    html += `</div>`;
-    html += `</div>`;
-
-    // --- EXPANDABLE CONTENT ---
-    html += `<div id="sheet-content" style="padding: 0 20px 24px; overflow-y: auto; max-height: calc(70vh - 48px); transition: opacity 0.2s ease;">`;
-  }
-
-  // On mobile: embed creator info at top of the sheet
-  if (isMobile && creatorName) {
-    html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1);">`;
-    html += `<div style="font-size: 20px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${creatorName}</div>`;
-    const mobileBio = creators[selectedCreatorIndex] ? creators[selectedCreatorIndex].bio : '';
-    html += `<div style="font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5;">${mobileBio ? fixTypography(mobileBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : ''}</div>`;
-    html += `</div>`;
-  }
-
-  // Client label
-  if (project.client) {
-    html += `<div style="font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: ${isMobile ? 'rgba(255,255,255,0.5)' : '#888'}; margin-bottom: 6px; font-weight: 500;">${project.client}</div>`;
-  }
-
-  // Project name
-  html += `<div style="font-size: ${isMobile ? '22' : '28'}px; font-weight: 600; color: ${isMobile ? '#ffffff' : '#1a1a1a'}; margin-bottom: ${isMobile ? '16' : '24'}px;">${project.name}</div>`;
-
-  // Video player (16:9)
-  if (project.type === 'video' && project.videoUrl) {
-    html += `
-      <div style="position: relative; width: 100%; padding-bottom: 56.25%; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: ${isMobile ? '16' : '24'}px;">
-        <video
-          src="${project.videoUrl}"
-          controls
-          playsinline
-          preload="metadata"
-          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; cursor: default; border-radius: 12px;"
-        ></video>
-      </div>
-    `;
-  }
-
-  // Image gallery grid
-  if (project.type === 'images' && project.images && project.images.length > 0) {
-    html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: ${isMobile ? '16' : '24'}px;">`;
-    project.images.forEach((imgUrl, idx) => {
-      html += `
-        <div data-lightbox-idx="${idx}" style="position: relative; padding-bottom: 100%; border-radius: 8px; overflow: hidden; cursor: pointer; background: rgba(255,255,255,0.05);">
-          <img src="${imgUrl}" loading="lazy" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" />
-        </div>
-      `;
-    });
-    html += `</div>`;
-  }
-
-  // Close button
-  html += `
-    <button id="detail-close" style="
-      background: rgba(255,255,255,0.12); color: ${isMobile ? '#ffffff' : '#1a1a1a'}; border: 1px solid ${isMobile ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'}; padding: ${isMobile ? '12px 20px' : '14px 28px'}; border-radius: 10px;
-      font-size: ${isMobile ? '13' : '14'}px; cursor: ${isMobile ? 'pointer' : 'none'}; font-family: inherit; letter-spacing: 1px;
-      transition: background 0.2s, border-color 0.2s; width: 100%; font-weight: 500;
-      backdrop-filter: blur(8px);
-    ">Close</button>
-  `;
-
-  if (isMobile) {
-    html += `</div>`; // close #sheet-content
-  }
-
-  projectInfoPanel.innerHTML = html;
-
-  // On mobile: measure and set up sheet heights
-  if (isMobile) {
-    // Force layout to measure
-    requestAnimationFrame(() => {
-      sheetExpandedHeight = Math.min(projectInfoPanel.scrollHeight, window.innerHeight * 0.7);
-      projectInfoPanel.style.height = sheetExpandedHeight + 'px';
-      sheetExpanded = true;
-      sheetTranslateY = 0;
-      projectInfoPanel.style.transform = 'translateY(0)';
-    });
-  }
-
-  // Re-attach close button events
-  const closeBtn = document.getElementById('detail-close');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', returnToOverview);
-    closeBtn.addEventListener('mouseenter', (e) => { e.target.style.background = 'rgba(0,0,0,0.08)'; setCursorHover(true); });
-    closeBtn.addEventListener('mouseleave', (e) => { e.target.style.background = 'rgba(255,255,255,0.12)'; setCursorHover(false); });
-  }
-
-  // Attach image click listeners for lightbox
-  if (project.type === 'images' && project.images && project.images.length > 0) {
-    projectInfoPanel.querySelectorAll('[data-lightbox-idx]').forEach(el => {
-      el.addEventListener('click', () => {
-        openLightbox(project.images, parseInt(el.dataset.lightboxIdx));
-      });
-      el.addEventListener('mouseenter', () => {
-        const img = el.querySelector('img');
-        if (img) img.style.transform = 'scale(1.05)';
-        setCursorHover(true);
-      });
-      el.addEventListener('mouseleave', () => {
-        const img = el.querySelector('img');
-        if (img) img.style.transform = 'scale(1)';
-        setCursorHover(false);
-      });
-    });
-  }
+  // Legacy no-op — project viewing handled by openProjectPopup
 }
 
 function openDetailView(panel) {
@@ -1782,13 +1760,15 @@ function openDetailView(panel) {
   selectedPanel = panel;
   selectedCreatorIndex = panel.userData.creatorIndex;
 
-  document.getElementById('detail-creator-name').textContent = panel.userData.creatorName;
+  // Split name into two lines (first name \n last name)
+  const nameEl = document.getElementById('detail-creator-name');
+  const nameParts = panel.userData.creatorName.split(' ');
+  nameEl.textContent = nameParts.join('\n');
   const creatorBio = creators[panel.userData.creatorIndex].bio;
   const bioEl = document.getElementById('detail-creator-bio');
   if (bioEl) {
     bioEl.innerHTML = creatorBio ? fixTypography(creatorBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : '';
   }
-  populateProjectPanel(panel.userData.project, panel.userData.creatorName);
 
   const creatorGroup = creatorGroups[selectedCreatorIndex];
   const targetPos = creatorGroup.position.clone();
@@ -1796,6 +1776,7 @@ function openDetailView(panel) {
   // Highlight selected panel with white glow
   highlightPanel(panel);
 
+  // Center camera on sphere (no horizontal offset)
   gsap.to(camera.position, {
     x: targetPos.x,
     y: isMobile ? targetPos.y + 1.5 : targetPos.y,
@@ -1829,17 +1810,20 @@ function openDetailView(panel) {
     }
   });
 
-  // Hide the single name label
+  // Hide the single name label (avatar stays visible)
   nameLabelEl.style.opacity = '0';
   labelVisible = false;
 
+  // Show fullscreen background
+  showDetailBackground();
+
   setTimeout(() => {
+    creatorInfoPanel.style.opacity = '1';
+    creatorInfoPanel.style.pointerEvents = 'auto';
     if (!isMobile) {
-      creatorInfoPanel.style.opacity = '1';
-      creatorInfoPanel.style.pointerEvents = 'auto';
+      creatorBioPanel.style.opacity = '1';
+      creatorBioPanel.style.pointerEvents = 'auto';
     }
-    projectInfoPanel.style.opacity = '1';
-    projectInfoPanel.style.pointerEvents = 'auto';
   }, 500);
 
   const instr = document.getElementById('instructions');
@@ -1848,8 +1832,11 @@ function openDetailView(panel) {
   // Hide carousel arrows in detail view
   const arrowL = document.getElementById('carousel-arrow-left');
   const arrowR = document.getElementById('carousel-arrow-right');
-  if (arrowL) arrowL.style.opacity = '0';
-  if (arrowR) arrowR.style.opacity = '0';
+  if (arrowL) { arrowL.style.opacity = '0'; arrowL.style.pointerEvents = 'none'; }
+  if (arrowR) { arrowR.style.opacity = '0'; arrowR.style.pointerEvents = 'none'; }
+
+  // Switch nav to white for dark background
+  switchNavColors(true);
 }
 
 // Emissive border meshes for selected panel highlight
@@ -1874,34 +1861,27 @@ function updateDetailProject(panel) {
     unhighlightPanel(selectedPanel);
   }
   selectedPanel = panel;
-  populateProjectPanel(panel.userData.project, panel.userData.creatorName);
   highlightPanel(panel);
+  // Open centered popup with project content
+  openProjectPopup(panel.userData.project, panel.userData.creatorName);
 }
 
 function returnToOverview() {
   if (!isDetailView) return;
   isDetailView = false;
 
+  // Close popup if open
+  if (projectPopupOpen) closeProjectPopup();
+
   // Reset selected panel highlight
   if (selectedPanel) {
     unhighlightPanel(selectedPanel);
   }
 
-  if (!isMobile) {
-    creatorInfoPanel.style.opacity = '0';
-    creatorInfoPanel.style.pointerEvents = 'none';
-  }
-  projectInfoPanel.style.opacity = '0';
-  projectInfoPanel.style.pointerEvents = 'none';
-  if (isMobile) {
-    projectInfoPanel.style.transform = 'translateY(0)';
-    projectInfoPanel.style.height = '';
-    sheetExpanded = true;
-    sheetTranslateY = 0;
-  }
-  // Stop any playing video
-  const activeVideo = projectInfoPanel.querySelector('video');
-  if (activeVideo) { activeVideo.pause(); activeVideo.removeAttribute('src'); activeVideo.load(); }
+  creatorInfoPanel.style.opacity = '0';
+  creatorInfoPanel.style.pointerEvents = 'none';
+  creatorBioPanel.style.opacity = '0';
+  creatorBioPanel.style.pointerEvents = 'none';
 
   gsap.to(camera.position, {
     x: baseCameraPos.x + cameraPanOffset.x,
@@ -1944,8 +1924,14 @@ function returnToOverview() {
   // Show carousel arrows again
   const arrowL = document.getElementById('carousel-arrow-left');
   const arrowR = document.getElementById('carousel-arrow-right');
-  if (arrowL) arrowL.style.opacity = '1';
-  if (arrowR) arrowR.style.opacity = '1';
+  if (arrowL) { arrowL.style.opacity = '1'; arrowL.style.pointerEvents = 'auto'; }
+  if (arrowR) { arrowR.style.opacity = '1'; arrowR.style.pointerEvents = 'auto'; }
+
+  // Switch nav back to dark for light background
+  switchNavColors(false);
+
+  // Hide fullscreen background
+  hideDetailBackground();
 
   selectedPanel = null;
   selectedCreatorIndex = -1;
@@ -1961,7 +1947,8 @@ renderer.domElement.addEventListener('click', (event) => {
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
   if (isDetailView) {
-    // In detail view: click panel on selected sphere to switch project, click elsewhere to close
+    // In detail view: click panel on selected sphere to open project popup, click elsewhere to close
+    if (projectPopupOpen) return; // don't process canvas clicks while popup is open
     raycaster.setFromCamera(mouse, camera);
     const selectedObjects = sphereMeshGroups[selectedCreatorIndex].children.flatMap(c => c.children || [c]);
     const intersects = raycaster.intersectObjects(selectedObjects, true);
@@ -1987,6 +1974,7 @@ renderer.domElement.addEventListener('click', (event) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (typeof lightboxOverlay !== 'undefined' && lightboxOverlay.style.display === 'flex') { closeLightbox(); return; }
+    if (projectPopupOpen) { closeProjectPopup(); return; }
     if (isDetailView) returnToOverview();
   }
   // Lightbox arrow navigation
