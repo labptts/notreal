@@ -919,7 +919,7 @@ avatarEl.muted = true;
 avatarEl.playsInline = true;
 avatarEl.style.cssText = `
   position: fixed;
-  left: calc(100vw / 5.5);
+  left: calc(100vw / 6);
   top: 50%;
   transform: translate(-50%, -50%);
   height: 82vh;
@@ -965,6 +965,7 @@ document.body.appendChild(detailBgEl);
 
 let avatarVisible = false;
 function showAvatar() {
+  if (isMobile) return;
   if (!avatarVisible) {
     avatarEl.style.opacity = '1';
     avatarVisible = true;
@@ -1523,7 +1524,7 @@ creatorInfoPanel.style.cssText = isMobile ? `
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   display: flex; flex-direction: column; gap: 8px;
 ` : `
-  position: fixed; left: 60px; bottom: 60px; right: 60px;
+  position: fixed; left: 60px; bottom: 40px; right: 60px;
   padding: 0 40px;
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
@@ -1671,8 +1672,22 @@ function closeProjectPopup() {
   projectPopupOpen = false;
 }
 
-// Keep old projectInfoPanel reference as no-op for safety (mobile sheet)
-const projectInfoPanel = { style: {}, querySelector: () => null, querySelectorAll: () => [], innerHTML: '' };
+// RIGHT / BOTTOM: Project info panel (mobile swipe sheet, hidden on desktop)
+const projectInfoPanel = document.createElement('div');
+projectInfoPanel.id = 'project-info-panel';
+projectInfoPanel.style.cssText = isMobile ? `
+  position: fixed; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  padding: 0;
+  background: rgba(255,255,255,0.08); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.12); border-bottom: none;
+  border-radius: 20px 20px 0 0; z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.5s ease;
+  font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
+  will-change: transform;
+` : `display: none;`;
+document.body.appendChild(projectInfoPanel);
 
 // ============================================================
 // MOBILE SWIPE SHEET LOGIC (legacy — kept minimal for mobile popup)
@@ -1685,12 +1700,104 @@ let sheetDragStartY = 0;
 let sheetDragCurrentY = 0;
 let sheetTranslateY = 0;
 
-function setSheetPosition(translateY, animate) { /* no-op now */ }
-function expandSheet() { /* no-op */ }
-function collapseSheet() { /* no-op */ }
+function getSheetExpandedHeight() {
+  if (!isMobile) return 0;
+  projectInfoPanel.style.transform = 'translateY(0)';
+  const natural = projectInfoPanel.scrollHeight;
+  return Math.min(natural, window.innerHeight * 0.7);
+}
 
-// (Mobile swipe sheet code removed — using popup instead)
-if (false) {
+function setSheetPosition(translateY, animate) {
+  if (!isMobile) return;
+  const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
+  translateY = Math.max(0, Math.min(translateY, maxTranslate));
+  sheetTranslateY = translateY;
+  if (animate) {
+    projectInfoPanel.style.transition = 'opacity 0.5s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+  } else {
+    projectInfoPanel.style.transition = 'opacity 0.5s ease';
+  }
+  projectInfoPanel.style.transform = `translateY(${translateY}px)`;
+
+  const content = document.getElementById('sheet-content');
+  const collapsed = document.getElementById('sheet-collapsed');
+  if (content && collapsed) {
+    if (translateY > (sheetExpandedHeight - sheetCollapsedHeight) * 0.5) {
+      content.style.opacity = '0';
+      content.style.pointerEvents = 'none';
+      collapsed.style.opacity = '1';
+      sheetExpanded = false;
+    } else {
+      content.style.opacity = '1';
+      content.style.pointerEvents = 'auto';
+      collapsed.style.opacity = '0';
+      sheetExpanded = true;
+    }
+  }
+}
+
+function expandSheet() {
+  setSheetPosition(0, true);
+  sheetExpanded = true;
+}
+
+function collapseSheet() {
+  const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
+  setSheetPosition(maxTranslate, true);
+  sheetExpanded = false;
+}
+
+if (isMobile) {
+  projectInfoPanel.addEventListener('touchstart', (e) => {
+    const rect = projectInfoPanel.getBoundingClientRect();
+    const touchY = e.touches[0].clientY;
+    const relY = touchY - rect.top;
+    if (sheetExpanded && relY > 56) return;
+    sheetDragging = true;
+    sheetDragStartY = touchY;
+    sheetDragCurrentY = touchY;
+    projectInfoPanel.style.transition = 'opacity 0.5s ease';
+  }, { passive: true });
+
+  projectInfoPanel.addEventListener('touchmove', (e) => {
+    if (!sheetDragging) return;
+    sheetDragCurrentY = e.touches[0].clientY;
+    const delta = sheetDragCurrentY - sheetDragStartY;
+    let newTranslate;
+    if (sheetExpanded) {
+      newTranslate = Math.max(0, delta);
+    } else {
+      const maxT = sheetExpandedHeight - sheetCollapsedHeight;
+      newTranslate = maxT + delta;
+    }
+    const maxTranslate = sheetExpandedHeight - sheetCollapsedHeight;
+    newTranslate = Math.max(0, Math.min(newTranslate, maxTranslate));
+    projectInfoPanel.style.transform = `translateY(${newTranslate}px)`;
+
+    const progress = newTranslate / maxTranslate;
+    const content = document.getElementById('sheet-content');
+    const collapsed = document.getElementById('sheet-collapsed');
+    if (content) content.style.opacity = String(1 - progress);
+    if (collapsed) collapsed.style.opacity = String(progress);
+  }, { passive: true });
+
+  const sheetTouchEnd = () => {
+    if (!sheetDragging) return;
+    sheetDragging = false;
+    const delta = sheetDragCurrentY - sheetDragStartY;
+    const threshold = 60;
+    if (sheetExpanded) {
+      if (delta > threshold) collapseSheet(); else expandSheet();
+    } else {
+      if (delta < -threshold) expandSheet(); else collapseSheet();
+    }
+  };
+  projectInfoPanel.addEventListener('touchend', sheetTouchEnd);
+  projectInfoPanel.addEventListener('touchcancel', sheetTouchEnd);
+
+  projectInfoPanel.addEventListener('click', (e) => {
+    if (!sheetExpanded && !sheetDragging) expandSheet();
+  });
 }
 
 // ============================================================
@@ -1747,10 +1854,115 @@ document.getElementById('lightbox-next').addEventListener('mouseleave', function
 lightboxOverlay.addEventListener('click', (e) => { if (e.target === lightboxOverlay) closeLightbox(); });
 
 // ============================================================
-// POPULATE PROJECT PANEL — replaced by popup, this is now a no-op
+// POPULATE PROJECT PANEL (mobile swipe sheet)
 // ============================================================
 function populateProjectPanel(project, creatorName) {
-  // Legacy no-op — project viewing handled by openProjectPopup
+  const existingVideo = projectInfoPanel.querySelector('video');
+  if (existingVideo) { existingVideo.pause(); existingVideo.removeAttribute('src'); existingVideo.load(); }
+
+  let html = '';
+
+  // --- DRAG HANDLE ---
+  html += `<div id="sheet-handle" style="padding: 12px 0 8px; cursor: grab; touch-action: none;">`;
+  html += `<div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.25); margin: 0 auto;"></div>`;
+  html += `</div>`;
+
+  // --- COLLAPSED MINI-BAR ---
+  html += `<div id="sheet-collapsed" style="position: absolute; left: 0; right: 0; top: 0; padding: 20px 24px 16px; pointer-events: none; opacity: 0; transition: opacity 0.2s ease;">`;
+  html += `<div style="display: flex; align-items: center; justify-content: space-between;">`;
+  html += `<div>`;
+  if (project.client) html += `<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 2px;">${project.client}</div>`;
+  html += `<div style="font-size: 18px; font-weight: 600; color: #ffffff;">${project.name}</div>`;
+  html += `</div>`;
+  html += `<div style="font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 1px;">↑ swipe up</div>`;
+  html += `</div>`;
+  html += `</div>`;
+
+  // --- EXPANDABLE CONTENT ---
+  html += `<div id="sheet-content" style="padding: 0 20px 24px; overflow-y: auto; max-height: calc(70vh - 48px); transition: opacity 0.2s ease;">`;
+
+  // Creator info at top of sheet
+  if (creatorName) {
+    html += `<div style="margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1);">`;
+    html += `<div style="font-size: 20px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${creatorName}</div>`;
+    const mobileBio = creators[selectedCreatorIndex] ? creators[selectedCreatorIndex].bio : '';
+    html += `<div style="font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5;">${mobileBio ? fixTypography(mobileBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : ''}</div>`;
+    html += `</div>`;
+  }
+
+  // Client label
+  if (project.client) {
+    html += `<div style="font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: rgba(255,255,255,0.5); margin-bottom: 6px; font-weight: 500;">${project.client}</div>`;
+  }
+
+  // Project name
+  html += `<div style="font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 16px;">${project.name}</div>`;
+
+  // Video player (16:9)
+  if (project.type === 'video' && project.videoUrl) {
+    html += `
+      <div style="position: relative; width: 100%; padding-bottom: 56.25%; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 16px;">
+        <video
+          src="${project.videoUrl}"
+          controls
+          playsinline
+          preload="metadata"
+          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; cursor: default; border-radius: 12px;"
+        ></video>
+      </div>
+    `;
+  }
+
+  // Image gallery grid
+  if (project.type === 'images' && project.images && project.images.length > 0) {
+    html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px;">`;
+    project.images.forEach((imgUrl, idx) => {
+      html += `
+        <div data-lightbox-idx="${idx}" style="position: relative; padding-bottom: 100%; border-radius: 8px; overflow: hidden; cursor: pointer; background: rgba(255,255,255,0.05);">
+          <img src="${imgUrl}" loading="lazy" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" />
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  // Close button
+  html += `
+    <button id="detail-close" style="
+      background: rgba(255,255,255,0.12); color: #ffffff; border: 1px solid rgba(255,255,255,0.15); padding: 12px 20px; border-radius: 10px;
+      font-size: 13px; cursor: pointer; font-family: inherit; letter-spacing: 1px;
+      transition: background 0.2s, border-color 0.2s; width: 100%; font-weight: 500;
+      backdrop-filter: blur(8px);
+    ">Close</button>
+  `;
+
+  html += `</div>`; // close #sheet-content
+
+  projectInfoPanel.innerHTML = html;
+
+  // Measure and set up sheet heights
+  requestAnimationFrame(() => {
+    sheetExpandedHeight = Math.min(projectInfoPanel.scrollHeight, window.innerHeight * 0.7);
+    projectInfoPanel.style.height = sheetExpandedHeight + 'px';
+    sheetExpanded = true;
+    sheetTranslateY = 0;
+    projectInfoPanel.style.transform = 'translateY(0)';
+  });
+
+  // Re-attach close button
+  const closeBtn = document.getElementById('detail-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', returnToOverview);
+  }
+
+  // Attach image lightbox
+  if (project.type === 'images' && project.images && project.images.length > 0) {
+    projectInfoPanel.querySelectorAll('[data-lightbox-idx]').forEach(el => {
+      el.addEventListener('click', () => {
+        openLightbox(project.images, parseInt(el.dataset.lightboxIdx));
+      });
+    });
+  }
 }
 
 function openDetailView(panel) {
@@ -1759,12 +1971,16 @@ function openDetailView(panel) {
   selectedPanel = panel;
   selectedCreatorIndex = panel.userData.creatorIndex;
 
-  const nameEl = document.getElementById('detail-creator-name');
-  nameEl.textContent = panel.userData.creatorName;
-  const creatorBio = creators[panel.userData.creatorIndex].bio;
-  const bioEl = document.getElementById('detail-creator-bio');
-  if (bioEl) {
-    bioEl.innerHTML = creatorBio ? fixTypography(creatorBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : '';
+  if (isMobile) {
+    populateProjectPanel(panel.userData.project, panel.userData.creatorName);
+  } else {
+    const nameEl = document.getElementById('detail-creator-name');
+    nameEl.textContent = panel.userData.creatorName;
+    const creatorBio = creators[panel.userData.creatorIndex].bio;
+    const bioEl = document.getElementById('detail-creator-bio');
+    if (bioEl) {
+      bioEl.innerHTML = creatorBio ? fixTypography(creatorBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : '';
+    }
   }
 
   const creatorGroup = creatorGroups[selectedCreatorIndex];
@@ -1811,13 +2027,16 @@ function openDetailView(panel) {
   nameLabelEl.style.opacity = '0';
   labelVisible = false;
 
-  // Show fullscreen background
-  showDetailBackground();
+  // Show fullscreen background (desktop only)
+  if (!isMobile) showDetailBackground();
 
   setTimeout(() => {
-    creatorInfoPanel.style.opacity = '1';
-    creatorInfoPanel.style.pointerEvents = 'auto';
-    if (!isMobile) {
+    if (isMobile) {
+      projectInfoPanel.style.opacity = '1';
+      projectInfoPanel.style.pointerEvents = 'auto';
+    } else {
+      creatorInfoPanel.style.opacity = '1';
+      creatorInfoPanel.style.pointerEvents = 'auto';
       creatorBioPanel.style.opacity = '1';
       creatorBioPanel.style.pointerEvents = 'auto';
     }
@@ -1832,8 +2051,8 @@ function openDetailView(panel) {
   if (arrowL) { arrowL.style.opacity = '0'; arrowL.style.pointerEvents = 'none'; }
   if (arrowR) { arrowR.style.opacity = '0'; arrowR.style.pointerEvents = 'none'; }
 
-  // Switch nav to white for dark background
-  switchNavColors(true);
+  // Switch nav to white for dark background (desktop only)
+  if (!isMobile) switchNavColors(true);
 }
 
 // Emissive border meshes for selected panel highlight
@@ -1859,15 +2078,18 @@ function updateDetailProject(panel) {
   }
   selectedPanel = panel;
   highlightPanel(panel);
-  // Open centered popup with project content
-  openProjectPopup(panel.userData.project, panel.userData.creatorName);
+  if (isMobile) {
+    populateProjectPanel(panel.userData.project, panel.userData.creatorName);
+  } else {
+    openProjectPopup(panel.userData.project, panel.userData.creatorName);
+  }
 }
 
 function returnToOverview() {
   if (!isDetailView) return;
   isDetailView = false;
 
-  // Close popup if open
+  // Close popup if open (desktop)
   if (projectPopupOpen) closeProjectPopup();
 
   // Reset selected panel highlight
@@ -1875,10 +2097,21 @@ function returnToOverview() {
     unhighlightPanel(selectedPanel);
   }
 
-  creatorInfoPanel.style.opacity = '0';
-  creatorInfoPanel.style.pointerEvents = 'none';
-  creatorBioPanel.style.opacity = '0';
-  creatorBioPanel.style.pointerEvents = 'none';
+  if (isMobile) {
+    projectInfoPanel.style.opacity = '0';
+    projectInfoPanel.style.pointerEvents = 'none';
+    projectInfoPanel.style.transform = 'translateY(0)';
+    projectInfoPanel.style.height = '';
+    sheetExpanded = true;
+    sheetTranslateY = 0;
+    const activeVideo = projectInfoPanel.querySelector('video');
+    if (activeVideo) { activeVideo.pause(); activeVideo.removeAttribute('src'); activeVideo.load(); }
+  } else {
+    creatorInfoPanel.style.opacity = '0';
+    creatorInfoPanel.style.pointerEvents = 'none';
+    creatorBioPanel.style.opacity = '0';
+    creatorBioPanel.style.pointerEvents = 'none';
+  }
 
   gsap.to(camera.position, {
     x: baseCameraPos.x + cameraPanOffset.x,
@@ -1924,11 +2157,11 @@ function returnToOverview() {
   if (arrowL) { arrowL.style.opacity = '1'; arrowL.style.pointerEvents = 'auto'; }
   if (arrowR) { arrowR.style.opacity = '1'; arrowR.style.pointerEvents = 'auto'; }
 
-  // Switch nav back to dark for light background
-  switchNavColors(false);
+  // Switch nav back to dark for light background (desktop only)
+  if (!isMobile) switchNavColors(false);
 
-  // Hide fullscreen background
-  hideDetailBackground();
+  // Hide fullscreen background (desktop only)
+  if (!isMobile) hideDetailBackground();
 
   selectedPanel = null;
   selectedCreatorIndex = -1;
