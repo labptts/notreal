@@ -1506,16 +1506,30 @@ creatorBioPanel.id = 'creator-bio-panel';
 creatorBioPanel.style.cssText = isMobile ? `
   display: none;
 ` : `
-  position: fixed; right: 120px; top: 50%; transform: translateY(-50%);
-  width: 280px; padding: 0;
+  position: fixed; right: 80px; top: 50%; transform: translateY(-50%);
+  width: 360px; padding: 0;
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity 0.6s ease;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
 `;
 creatorBioPanel.innerHTML = `
-  <div id="detail-creator-bio" style="font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.7;"></div>
+  <div style="font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.4); margin-bottom: 12px; text-transform: uppercase;">Био</div>
+  <div id="detail-creator-bio" style="font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.75; overflow: hidden; transition: max-height 0.4s ease;"></div>
+  <button id="bio-toggle" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 11px; letter-spacing: 0.5px; cursor: pointer; padding: 8px 0 0; font-family: inherit; transition: color 0.2s;">развернуть</button>
 `;
 document.body.appendChild(creatorBioPanel);
+
+const bioToggleBtn = document.getElementById('bio-toggle');
+let bioExpanded = false;
+bioToggleBtn.addEventListener('click', () => {
+  const bioEl = document.getElementById('detail-creator-bio');
+  if (!bioEl) return;
+  bioExpanded = !bioExpanded;
+  bioEl.style.maxHeight = bioExpanded ? bioEl.scrollHeight + 'px' : '6.3em';
+  bioToggleBtn.textContent = bioExpanded ? 'свернуть' : 'развернуть';
+});
+bioToggleBtn.addEventListener('mouseenter', () => { bioToggleBtn.style.color = 'rgba(255,255,255,0.85)'; });
+bioToggleBtn.addEventListener('mouseleave', () => { bioToggleBtn.style.color = 'rgba(255,255,255,0.5)'; });
 
 // CENTERED PROJECT POPUP (overlay modal)
 const projectPopupOverlay = document.createElement('div');
@@ -1944,7 +1958,16 @@ function openDetailView(panel) {
     const creatorBio = creators[panel.userData.creatorIndex].bio;
     const bioEl = document.getElementById('detail-creator-bio');
     if (bioEl) {
-      bioEl.innerHTML = creatorBio ? fixTypography(creatorBio).replace(/\\n/g, '<br>').replace(/\n/g, '<br>') : '';
+      if (creatorBio) {
+        const paragraphs = creatorBio.split(/\\n|\n/).filter(p => p.trim());
+        bioEl.innerHTML = paragraphs.map(p => `<p style="margin: 0 0 10px;">${fixTypography(p)}</p>`).join('');
+      } else {
+        bioEl.innerHTML = '';
+      }
+      bioExpanded = false;
+      bioEl.style.maxHeight = '6.3em';
+      bioToggleBtn.textContent = 'развернуть';
+      bioToggleBtn.style.display = creatorBio ? 'block' : 'none';
     }
   }
 
