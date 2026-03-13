@@ -1,0 +1,42 @@
+name: Deploy to Selectel S3
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install s3cmd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y s3cmd
+
+      - name: Deploy to Selectel S3
+        env:
+          S3_ACCESS_KEY: ${{ secrets.SELECTEL_S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.SELECTEL_S3_SECRET_KEY }}
+        run: |
+          cat > ~/.s3cfg << EOF
+          [default]
+          access_key = ${S3_ACCESS_KEY}
+          secret_key = ${S3_SECRET_KEY}
+          host_base = s3.storage.selcloud.ru
+          host_bucket = %(bucket)s.s3.storage.selcloud.ru
+          use_https = True
+          EOF
+
+          s3cmd sync --delete-removed --acl-public --no-mime-magic --guess-mime-type --no-check-hostname dist/ s3://${{ vars.SELECTEL_BUCKET_NAME }}/
