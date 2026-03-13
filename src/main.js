@@ -213,13 +213,12 @@ function fixTypography(text) {
 const creators = [
   {
     name: 'Дмитрий Фольмер',
-    character: '/projects/NR_Follmer.webm',
+    character: '/projects/Folmer_2.webm',
     background: '/projects/Volmer.webp',
     bio: 'AI-креатор с операторским бэкграундом. Я оператор-постановщик — снимаю рекламу, клипы и кино. Понимаю кадр изнутри: свет, текстура, драматургия, актёры, ритм сцены. Это позволяет создавать AI-изображения выразительными и кинематографичными — и не пропускать «пластилиновую» картинку с фальшивой физикой и мёртвыми актёрами.\nМне близки проекты в реализме — где в основе идея, эмоция и ощущение живого момента.\nРаботаю как с full AI-проектами, так и использую AI для усиления реальных съёмок.',
     projects: [
       { name: 'Action', client: 'Higgsfield', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_3.mp4', preview: '/projects/NR_DimaFolmer_3.webp', images: [] },
       { name: 'THE BEST FRIEND', client: 'Personal', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_1.mp4', preview: '/projects/NR_DimaFolmer_1.webp', images: [] },
-      { name: 'Showreel', client: '', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_2.mp4', preview: '/projects/NR_DimaFolmer_2.webp', images: [] },
       { name: 'Showreel', client: '', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_DimaFolmer_2.mp4', preview: '/projects/NR_DimaFolmer_2.webp', images: [] },
     ]
   },
@@ -237,13 +236,13 @@ const creators = [
   },
   {
     name: 'Катя Романова',
-    character: '/projects/NR_Romka.webm',
+    character: '/projects/Romka_2.webm',
     background: '/projects/Romka.webp',
     bio: 'Режиссёр и ии-креатор. Кате близки живые, точные наблюдения и столкновения очень разных персонажей — странных, неповторимых, но узнаваемых. Любит эстетику Фиби Уоллер-Бридж; ей особенно интересно работать не в чистом реализме, а придумывать свои миры чуть смещённые, с юмором и нервом. Параллельно снимает контент для российских музыкальных артистов (клипы, сниппеты, концерты и разговорные форматы).',
     projects: [
       { name: 'Пушистая реклама', client: 'ОТП Банк', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_Kate_Romanova_OTPbank.mp4', preview: '/projects/NR_Romka_OTP.webp', images: [] },
       { name: 'Микрофон', client: 'Comica', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_Kate_Romanova_Comica.mp4', preview: '/projects/NR_Romka_Comica.webp', images: [] },
-      { name: 'Big Game', client: 'Artlist', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_Kate_Romanova_Artlist.mp4', preview: '/projects/NR_Romka_artlist.webp', images: [] },
+      { name: 'Big Game', client: 'Artist', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_Kate_Romanova_Artlist.mp4', preview: '/projects/NR_Romka_artlist.webp', images: [] },
       { name: 'Jewelry', client: 'Personal', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_Kate_Romanova_Jeweley.mp4', preview: '/projects/NR_Romka_jewelery.webp', images: [] },
     ]
   },
@@ -261,7 +260,7 @@ const creators = [
   },
   {
     name: 'Саша GEX',
-    character: '/projects/NR_GEX.webm',
+    character: '/projects/Gex_2.webm',
     background: '/projects/GEX.webp',
     bio: 'Режиссёр, продюсер и ИИ-креатор полного цикла с глубокой экспертизой в VFX, CGI и генеративных технологиях. Начинал с музыкальных клипов для артистов уровня «Грэмми», сейчас работает в рекламе и сериалах с топовыми именами индустрии. Лично участвует на каждом этапе — от формирования визуальной концепции и написания сценария до организации съёмочного процесса и финального монтажа. Одним из первых в России освоил и применил технологию виртуального продакшена, а сейчас активно работает с киношным ИИ, закладывая использование нейросетей и CGI ещё на стадии раскадровки.\nМастерски находит нестандартные технические решения для реализации сложных визуальных идей — чем амбициознее задача, тем сильнее результат. Комплексное понимание всех этапов видеопроизводства и бескомпромиссный подход к правдоподобности визуала — его главное конкурентное преимущество.',
     projects: [
@@ -273,8 +272,8 @@ const creators = [
   },
   {
     name: 'Black April',
-    character: '',
-    background: '',
+    character: '/projects/BlackApril_2.webm',
+    background: '/projects/NR_BlackApril.webp',
     bio: 'Продакшен-студия на стыке AI, CG и визуальных технологий. Создаёт AI-видео, рекламные ролики, клипы, digital-контент и уникальные визуальные миры для брендов и агентств. Использует нейросети как полноценный продакшен-инструмент, совмещая их с 3D-графикой, VFX, motion-дизайном и композитингом для управляемого и качественного результата. Закрывает полный цикл — от креативной концепции и визуального языка до финальной сборки и постпродакшена. Реализует медиа-арт проекты, инсталляции и интерактивные решения. В портфолио — кейсы для Сбера, Яндекса, Ozon и клипы для топовых артистов, неоднократно входившие в топ лучших работ года. Подключается на любом этапе, усиливая как AI-направление, так и классический продакшн.',
     projects: [
       { name: 'SQWOZ BAB', client: 'Tornado', type: 'video', videoUrl: 'https://notreal-projects.s3.eu-north-1.amazonaws.com/NR_BlackApril_Tornado.mp4', preview: '/projects/NR_BlackApril_Tornado.webp', images: [] },
@@ -285,7 +284,7 @@ const creators = [
   },
   {
     name: 'Ника Aiphonika',
-    character: '/projects/NR_nika.webm',
+    character: '/projects/Nika_2.webm',
     background: '/projects/Mayer.webp',
     bio: 'ИИ-креатор с 8-летним бэкграундом в контент-продюсировании и арт-дирекшене. Работала с L\'Oreal Paris, финтех-компанией Wallester, снимала клип для Biicla, создавала контент для Morgenshtern и международных брендов на Бали. Фокус — не генерация ради генерации, а выстроенные визуальные концепции, передающие эмоции и смыслы. Бакалавр искусств Манчестерского университета (Management in the Creative Arts), что обеспечивает системный подход к креативным решениям. Развивает собственное ИИ-коммьюнити с аудиторией более 400 человек.',
     projects: [
@@ -297,7 +296,7 @@ const creators = [
   },
   {
     name: 'Diginastasi',
-    character: '/projects/NR_Diginasti.webm',
+    character: '/projects/Diginnasti_2.webm',
     background: '/projects/Digianast.webp',
     bio: 'Контент-креатор с 8-летним опытом в видеопроизводстве и 4-летним — в создании AI-контента. За плечами — более 100 AI-реклам и работа с крупнейшими брендами Казахстана: KazEnergy, BI Group, Halyk Bank, Freedom SuperApp и другими. Автор четырёх короткометражных фильмов, один из которых получил 4 номинации из 8 на местном кинофестивале. Победитель Higgsfield Best Video и участник мирового конкурса AI-короткометражек с призовым фондом $1 000 000. Суммарная аудитория в соцсетях — 24 000 подписчиков и свыше 16 000 000 просмотров.\nГлубокий бэкграунд в видеографии и фотографии, опыт работы с артистами и коммерческими клиентами, что обеспечивает профессиональный подход к AI-продакшену на всех этапах.',
     projects: [
