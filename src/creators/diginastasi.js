@@ -1,0 +1,12 @@
+export default {
+  name: 'Diginastasi',
+  character: '/projects/Diginnasti_2.webm',
+  background: '/projects/Digianast.webp',
+  bio: 'Контент-креатор с 8-летним опытом в видеопроизводстве и 4-летним — в создании AI-контента. За плечами — более 100 AI-реклам и работа с крупнейшими брендами Казахстана: KazEnergy, BI Group, Halyk Bank, Freedom SuperApp и другими. Автор четырёх короткометражных фильмов, один из которых получил 4 номинации из 8 на местном кинофестивале. Победитель Higgsfield Best Video и участник мирового конкурса AI-короткометражек с призовым фондом $1 000 000. Суммарная аудитория в соцсетях — 24 000 подписчиков и свыше 16 000 000 просмотров.\nГлубокий бэкграунд в видеографии и фотографии, опыт работы с артистами и коммерческими клиентами, что обеспечивает профессиональный подход к AI-продакшену на всех этапах.',
+  projects: [
+    { name: 'Project 1', client: '', type: 'video', videoUrl: '', preview: '', images: [] },
+    { name: 'Project 2', client: '', type: 'video', videoUrl: '', preview: '', images: [] },
+    { name: 'Project 3', client: '', type: 'video', videoUrl: '', preview: '', images: [] },
+    { name: 'Project 4', client: '', type: 'video', videoUrl: '', preview: '', images: [] },
+  ]
+};
