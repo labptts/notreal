@@ -301,7 +301,7 @@ loadingManager.onLoad = () => {
 
 function isCarouselCenter(i) {
   const angle = carouselAngle + i * carouselAnglePerItem;
-  return Math.abs(Math.sin(angle)) < 0.3;
+  return Math.abs(Math.sin(angle)) < 0.3 && Math.cos(angle) > 0;
 }
 
 const textureLoader = new THREE.TextureLoader(loadingManager);
@@ -910,7 +910,7 @@ let currentAvatarIndex = -1;
 function getCarouselCenterIndex() {
   for (let i = 0; i < creators.length; i++) {
     const angle = carouselAngle + i * carouselAnglePerItem;
-    if (Math.abs(Math.sin(angle)) < 0.3) return i;
+    if (Math.abs(Math.sin(angle)) < 0.3 && Math.cos(angle) > 0) return i;
   }
   return 0;
 }
@@ -1020,11 +1020,11 @@ function updateNameLabels() {
   // Detect if carousel is moving
   const isMoving = Math.abs(carouselAngle - carouselTargetAngle) > 0.05;
 
-  // Find current center creator
+  // Find current center creator (front sphere: sin≈0 AND cos>0)
   let centerIdx = -1;
   for (let i = 0; i < creators.length; i++) {
     const angle = carouselAngle + i * carouselAnglePerItem;
-    if (Math.abs(Math.sin(angle)) < 0.3) {
+    if (Math.abs(Math.sin(angle)) < 0.3 && Math.cos(angle) > 0) {
       centerIdx = i;
       break;
     }
