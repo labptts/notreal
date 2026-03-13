@@ -1163,7 +1163,14 @@ class InteractionController {
     const mx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     const my = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
+    // In detail view, only test the selected sphere
+    if (isDetailView && selectedCreatorIndex >= 0) {
+      const hits = raycaster.intersectObjects(sphereMeshGroups[selectedCreatorIndex].children, true);
+      if (hits.length > 0) return selectedCreatorIndex;
+      return -1;
+    }
     for (let i = 0; i < sphereMeshGroups.length; i++) {
+      if (!creatorGroups[i].visible) continue;
       const hits = raycaster.intersectObjects(sphereMeshGroups[i].children, true);
       if (hits.length > 0) return i;
     }
@@ -1175,6 +1182,9 @@ class InteractionController {
     this.previousMouse = { x: event.clientX, y: event.clientY };
     this.hasDragged = false;
     this.wasPanning = false;
+
+    // Don't start any interaction while popup is open
+    if (projectPopupOpen) return;
 
     if (isDetailView) {
       // In detail view, only allow rotating the selected sphere
