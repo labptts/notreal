@@ -693,7 +693,9 @@ creators.forEach((creator, ci) => {
   sphereGroup.add(glassMesh);
   glassMeshes.push(glassMesh);
 
-  sphereGroup.rotation.y = Math.random() * Math.PI * 2;
+  // Snap to show a project column face-on, with slight random offset for variety
+  const baseAngle = (Math.random() > 0.5 ? 0 : Math.PI); // pick one of two columns
+  sphereGroup.rotation.y = baseAngle + (Math.random() - 0.5) * 0.5;
   sphereGroup.rotation.x = (Math.random() - 0.5) * 0.3;
 
   creatorGroups.push(creatorGroup);
