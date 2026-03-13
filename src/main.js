@@ -289,6 +289,25 @@ loadingManager.onLoad = () => {
     if (instr) instr.style.opacity = '0.8';
     // Reveal name label and avatar after loading
     setTimeout(() => {
+      // Check URL hash for deep link to a creator
+      const hashMatch = window.location.hash.match(/^#creator=(.+)$/);
+      if (hashMatch) {
+        const targetSlug = hashMatch[1].toLowerCase();
+        const creatorIdx = creators.findIndex(c => c.slug === targetSlug);
+        if (creatorIdx >= 0) {
+          // Snap carousel to this creator instantly
+          carouselCurrentIndex = creatorIdx;
+          carouselTargetAngle = creatorIdx * carouselAnglePerItem;
+          carouselAngle = carouselTargetAngle;
+          updateCarouselPositions();
+          // Open detail view on first panel of this creator
+          const firstPanel = allPanels.find(p => p.userData.creatorIndex === creatorIdx);
+          if (firstPanel) {
+            setTimeout(() => openDetailView(firstPanel), 300);
+          }
+          return;
+        }
+      }
       const initCenter = getCarouselCenterIndex();
       nameLabelEl.textContent = creators[initCenter].name;
       currentLabelIndex = initCenter;
@@ -1996,6 +2015,10 @@ function openDetailView(panel) {
   selectedPanel = panel;
   selectedCreatorIndex = panel.userData.creatorIndex;
 
+  // Update URL hash
+  const slug = creators[selectedCreatorIndex].slug;
+  if (slug) history.replaceState(null, '', '#creator=' + slug);
+
   if (isMobile) {
     populateProjectPanel(panel.userData.project, panel.userData.creatorName);
   } else {
@@ -2133,6 +2156,9 @@ function updateDetailProject(panel) {
 function returnToOverview() {
   if (!isDetailView) return;
   isDetailView = false;
+
+  // Clear URL hash
+  history.replaceState(null, '', window.location.pathname + window.location.search);
 
   // Close popup if open (desktop)
   if (projectPopupOpen) closeProjectPopup();

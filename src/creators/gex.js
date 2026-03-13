@@ -1,4 +1,5 @@
 export default {
+  slug: 'gexmachine',
   name: 'GEXMACHINE',
   character: '/projects/Gex_2.webm',
   background: '/projects/GEX.webp',

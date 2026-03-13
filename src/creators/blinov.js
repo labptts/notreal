@@ -1,4 +1,5 @@
 export default {
+  slug: 'blinov',
   name: 'Саша Блинов',
   character: '/projects/NR_Blinov.webm',
   background: '/projects/Blinov.webp',

@@ -1,4 +1,5 @@
 export default {
+  slug: 'kitaev',
   name: 'Макс Китаев',
   character: '/projects/NR_Max.webm',
   background: '/projects/Kitaev.webp',

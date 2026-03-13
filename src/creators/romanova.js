@@ -1,4 +1,5 @@
 export default {
+  slug: 'romanova',
   name: 'Катя Романова',
   character: '/projects/Romka_2.webm',
   background: '/projects/Romka.webp',

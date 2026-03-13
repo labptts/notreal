@@ -1,4 +1,5 @@
 export default {
+  slug: 'diginastasi',
   name: 'Diginastasi',
   character: '/projects/Diginnasti_2.webm',
   background: '/projects/Digianast.webp',

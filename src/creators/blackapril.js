@@ -1,4 +1,5 @@
 export default {
+  slug: 'blackapril',
   name: 'Black April',
   character: '/projects/BlackApril_2.webm',
   background: '/projects/NR_BlackApril.webp',

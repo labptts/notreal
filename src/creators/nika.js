@@ -1,4 +1,5 @@
 export default {
+  slug: 'aiphonika',
   name: 'Ника Aiphonika',
   character: '/projects/Nika_2.webm',
   background: '/projects/Mayer.webp',

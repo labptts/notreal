@@ -1,4 +1,5 @@
 export default {
+  slug: 'folmer',
   name: 'Дмитрий Фольмер',
   character: '/projects/Folmer_2.webm',
   background: '/projects/Volmer.webp',
