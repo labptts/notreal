@@ -221,7 +221,7 @@ const spacingY = isMobile ? 4.6 : 6.8;
 // MOBILE CAROUSEL STATE
 // ============================================================
 // Orbital carousel: spheres arranged in a circle, swipe to rotate
-const carouselOrbitRadius = isMobile ? 7 : 14; // radius of the circular orbit
+const carouselOrbitRadius = isMobile ? 9 : 12; // radius of the circular orbit
 let carouselAngle = Math.random() * Math.PI * 2; // random initial angle
 let carouselTargetAngle = carouselAngle;
 let carouselCurrentIndex = 0; // which creator is centered
@@ -1931,11 +1931,10 @@ function populateProjectPanel(project, creatorName) {
     html += `
       <a href="${mobilePortfolioUrl}" target="_blank" rel="noopener noreferrer" style="
         display: block; text-align: center; margin-bottom: 12px; padding: 12px 20px;
-        background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 10px; color: #ffffff; font-size: 13px; font-weight: 500;
+        background: rgba(255,255,255,0.92); border: 1px solid rgba(255,255,255,0.95);
+        border-radius: 10px; color: #000000; font-size: 13px; font-weight: 500;
         letter-spacing: 0.5px; text-decoration: none; font-family: inherit;
         transition: background 0.2s; width: 100%;
-        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       ">Смотреть все портфолио</a>
     `;
   }
@@ -2509,7 +2508,7 @@ function animate() {
       // Central sphere is prominently larger
       const maxScale = isMobile ? 1.5 : 1.3;
       const scaleFactor = isMobile
-        ? THREE.MathUtils.clamp(0.2 + cosAngle * 1.3, 0.1, maxScale)
+        ? THREE.MathUtils.clamp(0.15 + cosAngle * 1.35, 0.08, maxScale)
         : THREE.MathUtils.clamp(0.3 + cosAngle * 1.2, 0.15, maxScale);
       const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
       group.scale.setScalar(scaleFactor * breathe);
