@@ -385,11 +385,12 @@ loadingManager.onLoad = () => {
     if (instr) instr.style.opacity = '0.8';
     // Reveal name label and avatar after loading
     setTimeout(() => {
-      nameLabelEl.textContent = creators[carouselCurrentIndex].name;
-      currentLabelIndex = carouselCurrentIndex;
+      const initCenter = getCarouselCenterIndex();
+      nameLabelEl.textContent = creators[initCenter].name;
+      currentLabelIndex = initCenter;
       nameLabelEl.style.opacity = '0.85';
       labelVisible = true;
-      showAvatar();
+      showAvatar(initCenter);
     }, 500);
   }, 400);
 };
@@ -1002,9 +1003,16 @@ document.body.appendChild(detailBgEl);
 
 let avatarVisible = false;
 let currentAvatarIndex = -1;
-function showAvatar() {
+function getCarouselCenterIndex() {
+  for (let i = 0; i < creators.length; i++) {
+    const angle = carouselAngle + i * carouselAnglePerItem;
+    if (Math.abs(Math.sin(angle)) < 0.3) return i;
+  }
+  return 0;
+}
+function showAvatar(explicitIdx) {
   if (isMobile) return;
-  const idx = carouselCurrentIndex;
+  const idx = explicitIdx !== undefined ? explicitIdx : getCarouselCenterIndex();
   const creator = creators[idx];
   if (!creator || !creator.character) {
     hideAvatar(true);
@@ -1134,7 +1142,7 @@ function updateNameLabels() {
       nameLabelEl.style.opacity = '0.85';
       labelVisible = true;
     }
-    showAvatar();
+    showAvatar(centerIdx);
   }
 }
 
