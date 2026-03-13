@@ -2,6 +2,7 @@ export default {
   name: 'Саша Блинов',
   character: '/projects/NR_Blinov.webm',
   background: '/projects/Blinov.webp',
+  portfolioUrl: 'https://drive.google.com/drive/folders/1457J9EyDoUdrwdCWLMojaJIi_0UoIXYK?usp=sharing',
   bio: 'AI-лид с четырехлетним опытом работы в индустрии и глубоким бэкграундом в видеомонтаже. Эксперт в управлении генеративными командами и реализации масштабных коммерческих проектов. На протяжении двух лет создавал знаковые высокобюджетные кейсы в составе студии LAB. Досконально владеет актуальным стеком нейросетей, подбирая самые эффективные инструменты под задачу. Мастерски находит нестандартные креативные пути для реализации сложных технических идей.',
   projects: [
     { name: 'Исполнение желаний', client: 'Т-Банк', type: 'video', videoUrl: 'https://labstudioweb.s3.eu-north-1.amazonaws.com/LAB_Tbank_NewYear.MP4', preview: '/projects/NR_Blinov_Tbank.webp', images: [] },

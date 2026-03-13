@@ -221,7 +221,7 @@ const spacingY = isMobile ? 4.6 : 6.8;
 // MOBILE CAROUSEL STATE
 // ============================================================
 // Orbital carousel: spheres arranged in a circle, swipe to rotate
-const carouselOrbitRadius = isMobile ? 7 : 10; // radius of the circular orbit
+const carouselOrbitRadius = isMobile ? 7 : 14; // radius of the circular orbit
 let carouselAngle = Math.random() * Math.PI * 2; // random initial angle
 let carouselTargetAngle = carouselAngle;
 let carouselCurrentIndex = 0; // which creator is centered
@@ -1497,8 +1497,26 @@ creatorInfoPanel.style.cssText = isMobile ? `
 `;
 creatorInfoPanel.innerHTML = `
   <div id="detail-creator-name" style="font-size: ${isMobile ? '48' : '71'}px; font-weight: 700; color: #ffffff; line-height: 1.1;"></div>
+  <a id="detail-portfolio-link" href="#" target="_blank" rel="noopener noreferrer" style="
+    display: none; margin-top: 16px; padding: 12px 24px;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px; color: #ffffff; font-size: 13px; font-weight: 500;
+    letter-spacing: 0.5px; text-decoration: none; font-family: inherit;
+    transition: background 0.2s, border-color 0.2s;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    width: fit-content; cursor: ${isMobile ? 'pointer' : 'none'};
+  ">Смотреть все портфолио</a>
 `;
 document.body.appendChild(creatorInfoPanel);
+
+// Portfolio link hover (desktop)
+if (!isMobile) {
+  const pLink = document.getElementById('detail-portfolio-link');
+  if (pLink) {
+    pLink.addEventListener('mouseenter', () => { pLink.style.background = 'rgba(255,255,255,0.25)'; pLink.style.borderColor = 'rgba(255,255,255,0.4)'; setCursorHover(true); });
+    pLink.addEventListener('mouseleave', () => { pLink.style.background = 'rgba(255,255,255,0.12)'; pLink.style.borderColor = 'rgba(255,255,255,0.2)'; setCursorHover(false); });
+  }
+}
 
 // RIGHT: Creator bio (vertically centered)
 const creatorBioPanel = document.createElement('div');
@@ -1594,6 +1612,7 @@ function openProjectPopup(project, creatorName) {
       <div style="position: relative; width: 100%; padding-bottom: 56.25%; background: #000; border-radius: 12px; overflow: hidden;">
         <video
           src="${project.videoUrl}"
+          ${project.preview ? `poster="${project.preview}"` : ''}
           controls
           playsinline
           preload="metadata"
@@ -1883,6 +1902,7 @@ function populateProjectPanel(project, creatorName) {
       <div style="position: relative; width: 100%; padding-bottom: 56.25%; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 16px;">
         <video
           src="${project.videoUrl}"
+          ${project.preview ? `poster="${project.preview}"` : ''}
           controls
           playsinline
           preload="metadata"
@@ -1905,10 +1925,25 @@ function populateProjectPanel(project, creatorName) {
     html += `</div>`;
   }
 
+  // Portfolio link (mobile)
+  const mobilePortfolioUrl = creators[selectedCreatorIndex] ? creators[selectedCreatorIndex].portfolioUrl : '';
+  if (mobilePortfolioUrl) {
+    html += `
+      <a href="${mobilePortfolioUrl}" target="_blank" rel="noopener noreferrer" style="
+        display: block; text-align: center; margin-bottom: 12px; padding: 12px 20px;
+        background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 10px; color: #ffffff; font-size: 13px; font-weight: 500;
+        letter-spacing: 0.5px; text-decoration: none; font-family: inherit;
+        transition: background 0.2s; width: 100%;
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      ">Смотреть все портфолио</a>
+    `;
+  }
+
   // Close button
   html += `
     <button id="detail-close" style="
-      background: rgba(255,255,255,0.12); color: #ffffff; border: 1px solid rgba(255,255,255,0.15); padding: 12px 20px; border-radius: 10px;
+      background: rgba(255,255,255,0.12); color: #000000; border: 1px solid rgba(255,255,255,0.15); padding: 12px 20px; border-radius: 10px;
       font-size: 13px; cursor: pointer; font-family: inherit; letter-spacing: 1px;
       transition: background 0.2s, border-color 0.2s; width: 100%; font-weight: 500;
       backdrop-filter: blur(8px);
@@ -1955,6 +1990,17 @@ function openDetailView(panel) {
   } else {
     const nameEl = document.getElementById('detail-creator-name');
     nameEl.textContent = panel.userData.creatorName;
+    // Portfolio link
+    const portfolioLink = document.getElementById('detail-portfolio-link');
+    const portfolioUrl = creators[panel.userData.creatorIndex].portfolioUrl;
+    if (portfolioLink) {
+      if (portfolioUrl) {
+        portfolioLink.href = portfolioUrl;
+        portfolioLink.style.display = 'inline-block';
+      } else {
+        portfolioLink.style.display = 'none';
+      }
+    }
     const creatorBio = creators[panel.userData.creatorIndex].bio;
     const bioEl = document.getElementById('detail-creator-bio');
     if (bioEl) {
@@ -2462,7 +2508,9 @@ function animate() {
       // cosAngle: 1 = front, 0 = side, -1 = back
       // Central sphere is prominently larger
       const maxScale = isMobile ? 1.5 : 1.3;
-      const scaleFactor = THREE.MathUtils.clamp(0.3 + cosAngle * 1.2, 0.15, maxScale);
+      const scaleFactor = isMobile
+        ? THREE.MathUtils.clamp(0.2 + cosAngle * 1.3, 0.1, maxScale)
+        : THREE.MathUtils.clamp(0.3 + cosAngle * 1.2, 0.15, maxScale);
       const breathe = 1.0 + Math.sin(time * 0.9 + phase * 2.1) * 0.012;
       group.scale.setScalar(scaleFactor * breathe);
 
