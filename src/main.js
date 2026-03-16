@@ -978,33 +978,43 @@ const topNav = document.createElement('div');
 topNav.id = 'top-nav';
 topNav.style.cssText = `
   position: fixed; top: 0; left: 0; right: 0;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   padding: ${isMobile ? '16px 20px' : '20px 40px'};
   z-index: 150; opacity: 0;
   transition: opacity 0.6s ease;
   pointer-events: auto;
   font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
 `;
-topNav.innerHTML = isMobile ? `
-  <a href="mailto:hello@notrealtalents.ai" style="font-size: 10px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s;">hello@notrealtalents.ai</a>
-  <img src="/NotReal_logo.svg" alt="NotReal" style="height: 14px; position: absolute; left: 50%; transform: translateX(-50%);" />
-  <a href="https://notreal-projects.s3.eu-north-1.amazonaws.com/NotReal_talents_March26.pdf" target="_blank" rel="noopener noreferrer" id="download-presentation" style="font-size: 10px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s;">скачать .pdf</a>
-` : `
-  <a href="mailto:hello@notrealtalents.ai" style="font-size: 13px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; cursor: none;">hello@notrealtalents.ai</a>
-  <img src="/NotReal_logo.svg" alt="NotReal" style="height: 16px;" />
-  <a href="https://notreal-projects.s3.eu-north-1.amazonaws.com/NotReal_talents_March26.pdf" target="_blank" rel="noopener noreferrer" id="download-presentation" style="font-size: 13px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; cursor: none;">скачать .pdf</a>
+const navFs = isMobile ? '10px' : '13px';
+const navCursor = isMobile ? '' : 'cursor: none;';
+const navLh = isMobile ? '14px' : '17px';
+topNav.innerHTML = `
+  <div style="display: flex; flex-direction: column; align-items: flex-start; line-height: ${navLh};">
+    <span class="nav-text" style="font-size: ${navFs}; color: #000000; letter-spacing: 0.5px; transition: color 0.2s; ${navCursor}">Агентство</span>
+    <span class="nav-text" style="font-size: ${navFs}; color: #000000; letter-spacing: 0.5px; transition: color 0.2s; ${navCursor}">Талантов</span>
+    <span class="nav-text" style="font-size: ${navFs}; color: #000000; letter-spacing: 0.5px; transition: color 0.2s; ${navCursor}">ИИ-Креаторов</span>
+  </div>
+  <img src="/NotReal_logo.svg" alt="NotReal" style="height: ${isMobile ? '14px' : '16px'}; position: absolute; left: 50%; transform: translateX(-50%); top: ${isMobile ? '16px' : '20px'};" />
+  <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: ${navLh};">
+    <a href="https://notreal-projects.s3.eu-north-1.amazonaws.com/NotReal_talents_March26.pdf" target="_blank" rel="noopener noreferrer" id="download-presentation" style="font-size: ${navFs}; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; ${navCursor}">скачать .pdf</a>
+    <a href="mailto:hello@notrealtalents.ai" style="font-size: ${navFs}; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; ${navCursor}">E-mail</a>
+    <a href="https://www.instagram.com/notrealtalents" target="_blank" rel="noopener noreferrer" style="font-size: ${navFs}; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; ${navCursor}">Instagram</a>
+  </div>
 `;
 document.body.appendChild(topNav);
 
 // Nav color switching for detail view (dark bg)
 function switchNavColors(toDark) {
   const links = topNav.querySelectorAll('a');
+  const texts = topNav.querySelectorAll('.nav-text');
   const logo = topNav.querySelector('img');
   if (toDark) {
     links.forEach(l => l.style.color = '#ffffff');
+    texts.forEach(t => t.style.color = '#ffffff');
     if (logo) logo.src = '/NotReal_logo_white.svg';
   } else {
     links.forEach(l => l.style.color = '#000000');
+    texts.forEach(t => t.style.color = '#000000');
     if (logo) logo.src = '/NotReal_logo.svg';
   }
 }
