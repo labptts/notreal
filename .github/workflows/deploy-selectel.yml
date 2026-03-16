@@ -39,4 +39,9 @@ jobs:
           use_https = True
           EOF
 
-          s3cmd sync --delete-removed --acl-public --no-mime-magic --guess-mime-type --no-check-hostname dist/ s3://${{ vars.SELECTEL_BUCKET_NAME }}/
+          # 1. Sync all files EXCEPT index.html (keep old bundles for CDN cache compatibility)
+          s3cmd sync --acl-public --no-mime-magic --guess-mime-type --no-check-hostname --exclude 'index.html' dist/ s3://${{ vars.SELECTEL_BUCKET_NAME }}/
+
+          # 2. Upload index.html separately with no-cache headers so CDN always fetches fresh version
+          s3cmd put dist/index.html s3://${{ vars.SELECTEL_BUCKET_NAME }}/index.html --acl-public --no-mime-magic --guess-mime-type --no-check-hostname \
+            --add-header="Cache-Control:no-cache, no-store, must-revalidate"

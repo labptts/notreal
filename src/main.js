@@ -988,11 +988,11 @@ topNav.style.cssText = `
 topNav.innerHTML = isMobile ? `
   <a href="mailto:hello@notrealtalents.ai" style="font-size: 10px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s;">hello@notrealtalents.ai</a>
   <img src="/NotReal_logo.svg" alt="NotReal" style="height: 14px; position: absolute; left: 50%; transform: translateX(-50%);" />
-  <a href="#" id="download-presentation" style="font-size: 10px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s;">скачать .pdf</a>
+  <a href="https://notreal-projects.s3.eu-north-1.amazonaws.com/NotReal_talents_March26.pdf" target="_blank" rel="noopener noreferrer" id="download-presentation" style="font-size: 10px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s;">скачать .pdf</a>
 ` : `
   <a href="mailto:hello@notrealtalents.ai" style="font-size: 13px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; cursor: none;">hello@notrealtalents.ai</a>
   <img src="/NotReal_logo.svg" alt="NotReal" style="height: 16px;" />
-  <a href="#" id="download-presentation" style="font-size: 13px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; cursor: none;">скачать .pdf</a>
+  <a href="https://notreal-projects.s3.eu-north-1.amazonaws.com/NotReal_talents_March26.pdf" target="_blank" rel="noopener noreferrer" id="download-presentation" style="font-size: 13px; color: #000000; text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; cursor: none;">скачать .pdf</a>
 `;
 document.body.appendChild(topNav);
 
